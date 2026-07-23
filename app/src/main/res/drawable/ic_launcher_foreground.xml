@@ -4,14 +4,53 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Pressure containment arcs -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,25 L79,45 L70,75 L54,88 L38,75 L29,45 Z" />
+        android:fillColor="#2C3E50"
+        android:pathData="M25,40 C32,27 43,22 54,22 C65,22 76,27 83,40 L77,44 C71,34 63,29 54,29 C45,29 37,34 31,44 Z" />
     <path
-        android:fillColor="#D6F1FF"
-        android:pathData="M29,45 L54,53 L79,45 L54,88 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M29,45 L41,31 L54,53 L67,31 L79,45 Z" />
-</vector>
+        android:fillColor="#2C3E50"
+        android:pathData="M25,68 C32,81 43,86 54,86 C65,86 76,81 83,68 L77,64 C71,74 63,79 54,79 C45,79 37,74 31,64 Z" />
 
+    <!-- Opposing compression arrows -->
+    <path
+        android:fillColor="#2C3E50"
+        android:pathData="M21,46 L29,54 L21,62 L26,67 L39,54 L26,41 Z" />
+    <path
+        android:fillColor="#2C3E50"
+        android:pathData="M87,46 L79,54 L87,62 L82,67 L69,54 L82,41 Z" />
+
+    <!-- Eight faceted diamond-anvil chamber segments -->
+    <path
+        android:fillColor="#2980B9"
+        android:pathData="M47,32 L61,32 L58.5,42 L49.5,42 Z" />
+    <path
+        android:fillColor="#3498DB"
+        android:pathData="M63,33 L75,45 L65,48 L60,42 Z" />
+    <path
+        android:fillColor="#2980B9"
+        android:pathData="M76,47 L76,61 L66,58.5 L66,49.5 Z" />
+    <path
+        android:fillColor="#3498DB"
+        android:pathData="M75,63 L63,75 L60,66 L65,60 Z" />
+    <path
+        android:fillColor="#2980B9"
+        android:pathData="M61,76 L47,76 L49.5,66 L58.5,66 Z" />
+    <path
+        android:fillColor="#3498DB"
+        android:pathData="M45,75 L33,63 L43,60 L48,66 Z" />
+    <path
+        android:fillColor="#2980B9"
+        android:pathData="M32,61 L32,47 L42,49.5 L42,58.5 Z" />
+    <path
+        android:fillColor="#3498DB"
+        android:pathData="M33,45 L45,33 L48,42 L43,48 Z" />
+
+    <!-- Ruby sample at the pressure center -->
+    <path
+        android:fillColor="#E74C3C"
+        android:pathData="M50,45 L58,45 L63,50 L63,58 L58,63 L50,63 L45,58 L45,50 Z" />
+    <path
+        android:fillColor="#FF6B5C"
+        android:pathData="M50,45 L58,45 L60.5,47.5 L47.5,47.5 Z" />
+</vector>
