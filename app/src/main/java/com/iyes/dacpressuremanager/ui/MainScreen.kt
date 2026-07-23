@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,7 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -214,14 +221,8 @@ private fun MainDashboard(
             Spacer(Modifier.height(sectionGap))
             ProfileToolbar(
                 profile = state.activeProfile,
-                dense = dense,
-                veryDense = veryDense,
                 onRename = { profileDialog = ProfileDialogKind.Rename },
                 onDelete = { deleteProfileId = state.activeProfile.id },
-                onSave = {
-                    onAction(MainAction.SaveHistory(state.activeProfile.id))
-                },
-                onHistory = onOpenHistory,
             )
             Spacer(Modifier.height(sectionGap))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -242,9 +243,10 @@ private fun MainDashboard(
                 shiftCenti = state.pressure.shiftCenti,
                 dense = dense,
                 veryDense = veryDense,
-                onReset = {
-                    onAction(MainAction.Reset(state.activeProfile.id))
+                onSave = {
+                    onAction(MainAction.SaveHistory(state.activeProfile.id))
                 },
+                onHistory = onOpenHistory,
             )
         }
     }
@@ -320,22 +322,13 @@ private fun ModeTabs(
 @Composable
 private fun ProfileToolbar(
     profile: Profile,
-    dense: Boolean,
-    veryDense: Boolean,
     onRename: () -> Unit,
     onDelete: () -> Unit,
-    onSave: () -> Unit,
-    onHistory: () -> Unit,
 ) {
-    val toolbarHeight = when {
-        veryDense -> 52.dp
-        dense -> 64.dp
-        else -> 72.dp
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(toolbarHeight),
+            .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -346,7 +339,7 @@ private fun ProfileToolbar(
             } else {
                 Color(0xFFC0392B)
             },
-            fontSize = if (dense) 16.sp else 18.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -354,50 +347,24 @@ private fun ProfileToolbar(
                 .weight(1f)
                 .semantics { heading() },
         )
-        Column(
+        Row(
             modifier = Modifier
-                .width(if (dense) 140.dp else 155.dp)
+                .width(140.dp)
                 .fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                ToolbarAction(
-                    label = stringResourceCompat(R.string.rename),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    onClick = onRename,
-                    modifier = Modifier.weight(1f),
-                )
-                ToolbarAction(
-                    label = stringResourceCompat(R.string.delete),
-                    color = MaterialTheme.colorScheme.error,
-                    onClick = onDelete,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                ToolbarAction(
-                    label = stringResourceCompat(R.string.save),
-                    color = MaterialTheme.colorScheme.primary,
-                    onClick = onSave,
-                    modifier = Modifier.weight(1f),
-                )
-                ToolbarAction(
-                    label = stringResourceCompat(R.string.history),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    onClick = onHistory,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            ToolbarAction(
+                label = stringResourceCompat(R.string.rename),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = onRename,
+                modifier = Modifier.weight(1f),
+            )
+            ToolbarAction(
+                label = stringResourceCompat(R.string.delete),
+                color = MaterialTheme.colorScheme.error,
+                onClick = onDelete,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -409,25 +376,60 @@ private fun ToolbarAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "toolbar-action-scale",
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isPressed) {
+            MaterialTheme.colorScheme.surfaceVariant
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        label = "toolbar-action-color",
+    )
+
+    Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(6.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { role = Role.Button },
-        shape = RoundedCornerShape(6.dp),
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = color,
-        border = BorderStroke(1.dp, color.copy(alpha = 0.55f)),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
             )
+            .semantics { role = Role.Button },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            shape = RoundedCornerShape(8.dp),
+            color = containerColor,
+            contentColor = color,
+            border = BorderStroke(1.dp, color.copy(alpha = 0.55f)),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -455,6 +457,7 @@ private fun DashboardCounters(
                 ReferenceCounter(
                     state = state,
                     onAction = onAction,
+                    reserveActionHeader = true,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -485,7 +488,7 @@ private fun DashboardCounters(
                     state = state,
                     onAction = onAction,
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.25f)
                         .fillMaxWidth(),
                 )
             }
@@ -503,6 +506,7 @@ private fun DashboardCounters(
 private fun ReferenceCounter(
     state: MainUiState.Content,
     onAction: (MainAction) -> Unit,
+    reserveActionHeader: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val profile = state.activeProfile
@@ -525,6 +529,7 @@ private fun ReferenceCounter(
             )
         },
         modifier = modifier,
+        reserveActionHeader = reserveActionHeader,
     )
 }
 
@@ -554,7 +559,92 @@ private fun MeasuredCounter(
             )
         },
         modifier = modifier,
+        headerAction = {
+            MeasuredResetAction(
+                onClick = {
+                    onAction(MainAction.Reset(profile.id))
+                },
+            )
+        },
     )
+}
+
+@Composable
+private fun MeasuredResetAction(
+    onClick: () -> Unit,
+) {
+    val resetDescription = stringResourceCompat(R.string.reset_measured_description)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "measured-reset-scale",
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isPressed) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+        label = "measured-reset-color",
+    )
+
+    Box(
+        modifier = Modifier
+            .width(82.dp)
+            .height(48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .semantics {
+                contentDescription = resetDescription
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            shape = RoundedCornerShape(8.dp),
+            color = containerColor,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            border = BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
+            ),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = "↺",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = stringResourceCompat(R.string.reset),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -564,7 +654,8 @@ private fun ResultCard(
     shiftCenti: Int,
     dense: Boolean,
     veryDense: Boolean,
-    onReset: () -> Unit,
+    onSave: () -> Unit,
+    onHistory: () -> Unit,
 ) {
     val pressureText = when (pressure) {
         is PressureResult.Valid ->
@@ -581,13 +672,18 @@ private fun ResultCard(
     val shiftPrefix = if (shiftCenti > 0) "+" else ""
     val resultHeight = when {
         veryDense -> 66.dp
-        dense -> 82.dp
-        else -> 100.dp
+        dense -> 112.dp
+        else -> 116.dp
     }
     val resultColors = if (mode == PressureMode.DIAMOND) {
         listOf(Color(0xFF2980B9), Color(0xFF3498DB))
     } else {
         listOf(Color(0xFFC0392B), Color(0xFFE74C3C))
+    }
+    val actionAccent = if (mode == PressureMode.DIAMOND) {
+        Color(0xFF236F9D)
+    } else {
+        Color(0xFF9F3027)
     }
 
     Row(
@@ -600,7 +696,10 @@ private fun ResultCard(
                     resultColors,
                 ),
             )
-            .padding(horizontal = if (dense) 12.dp else 18.dp, vertical = 8.dp),
+            .padding(
+                horizontal = if (dense) 12.dp else 18.dp,
+                vertical = if (dense && !veryDense) 6.dp else 8.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -654,37 +753,148 @@ private fun ResultCard(
                 )
             }
         }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Surface(
+        if (veryDense) {
+            Row(
                 modifier = Modifier
-                    .size(if (veryDense) 38.dp else 46.dp)
-                    .clickable(role = Role.Button, onClick = onReset)
-                    .semantics { role = Role.Button },
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.18f),
-                contentColor = Color.White,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                    .width(140.dp)
+                    .fillMaxHeight(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "↺",
-                        fontSize = if (veryDense) 20.sp else 24.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                ResultActionButton(
+                    label = stringResourceCompat(R.string.save),
+                    primary = true,
+                    enabled = pressure is PressureResult.Valid,
+                    accent = actionAccent,
+                    onClick = onSave,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                ResultActionButton(
+                    label = stringResourceCompat(R.string.history),
+                    primary = false,
+                    enabled = true,
+                    accent = actionAccent,
+                    onClick = onHistory,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
             }
-            Text(
-                text = stringResourceCompat(R.string.reset),
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = if (veryDense) 8.sp else 10.sp,
-                lineHeight = if (veryDense) 9.sp else 12.sp,
-                maxLines = 1,
-            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .width(if (dense) 88.dp else 100.dp)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ResultActionButton(
+                    label = stringResourceCompat(R.string.save),
+                    primary = true,
+                    enabled = pressure is PressureResult.Valid,
+                    accent = actionAccent,
+                    onClick = onSave,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+                ResultActionButton(
+                    label = stringResourceCompat(R.string.history),
+                    primary = false,
+                    enabled = true,
+                    accent = actionAccent,
+                    onClick = onHistory,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun ResultActionButton(
+    label: String,
+    primary: Boolean,
+    enabled: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "result-action-scale",
+    )
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            !enabled && primary -> Color.White.copy(alpha = 0.22f)
+            primary && isPressed -> Color.White.copy(alpha = 0.88f)
+            primary -> Color.White
+            isPressed -> Color.White.copy(alpha = 0.12f)
+            else -> Color.Transparent
+        },
+        label = "result-action-color",
+    )
+    val contentColor = when {
+        !enabled -> Color.White.copy(alpha = 0.58f)
+        primary -> accent
+        else -> Color.White
+    }
+
+    Box(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .semantics { role = Role.Button },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            shape = RoundedCornerShape(8.dp),
+            color = containerColor,
+            contentColor = contentColor,
+            border = if (primary) {
+                null
+            } else {
+                BorderStroke(1.dp, Color.White.copy(alpha = 0.55f))
+            },
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                ResultActionLabel(label)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultActionLabel(label: String) {
+    Text(
+        text = label,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 private enum class ProfileDialogKind {

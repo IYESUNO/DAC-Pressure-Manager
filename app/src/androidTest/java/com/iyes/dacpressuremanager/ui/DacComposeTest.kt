@@ -50,6 +50,7 @@ class DacComposeTest {
 
         composeRule.onNodeWithText("RUBY").performClick()
         composeRule.onNodeWithContentDescription("Increase Measured by 1.00").performClick()
+        composeRule.onNodeWithContentDescription("Reset measured to reference").performClick()
         composeRule.onNodeWithText("Save").performClick()
         composeRule.onNodeWithText("History").performClick()
 
@@ -61,6 +62,7 @@ class DacComposeTest {
                     it.deltaCenti == 100
             },
         )
+        assertTrue(actions.any { it is MainAction.Reset })
         assertTrue(actions.any { it is MainAction.SaveHistory })
         assertTrue(openedHistory)
     }

@@ -23,6 +23,7 @@
     <string name="save_as">Save as</string>
     <string name="share">Share</string>
     <string name="reset">Reset</string>
+    <string name="reset_measured_description">Reset measured to reference</string>
     <string name="records">Records</string>
     <string name="no_history">No history yet</string>
     <string name="pressure_gpa">%1$s GPa</string>

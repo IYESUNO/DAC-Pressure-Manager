@@ -100,6 +100,8 @@ fun DigitCounter(
     valueCenti: Int,
     onAdjust: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    headerAction: (@Composable () -> Unit)? = null,
+    reserveActionHeader: Boolean = false,
 ) {
     val definitions = if (mode == PressureMode.RUBY) {
         AllDigitDefinitions.drop(1)
@@ -109,15 +111,37 @@ fun DigitCounter(
     Column(
         modifier = modifier,
     ) {
-        Text(
-            text = title,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(3.dp))
+        if (headerAction != null || reserveActionHeader) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                headerAction?.invoke()
+            }
+            Spacer(Modifier.height(2.dp))
+        } else {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
