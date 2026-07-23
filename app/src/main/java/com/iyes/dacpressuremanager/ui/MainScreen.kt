@@ -16,14 +16,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -66,6 +71,7 @@ import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.formatCenti
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -113,6 +119,27 @@ private fun MainDashboard(
 ) {
     var profileDialog by rememberSaveable { mutableStateOf<ProfileDialogKind?>(null) }
     var deleteProfileId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingSave by remember { mutableStateOf<Pair<Long, Long?>?>(null) }
+    var showSaved by remember { mutableStateOf(false) }
+    val latestRecordId = state.recentRecords.firstOrNull()?.id
+
+    LaunchedEffect(state.activeProfile.id) {
+        pendingSave = null
+        showSaved = false
+    }
+    LaunchedEffect(latestRecordId, pendingSave) {
+        val request = pendingSave
+        if (
+            request != null &&
+            request.first == state.activeProfile.id &&
+            latestRecordId != request.second
+        ) {
+            pendingSave = null
+            showSaved = true
+            delay(900)
+            showSaved = false
+        }
+    }
 
     val deleteProfile = state.profiles.firstOrNull { it.id == deleteProfileId }
     if (profileDialog != null) {
@@ -177,33 +204,25 @@ private fun MainDashboard(
             .padding(padding)
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        val dense = maxHeight < 650.dp || maxWidth < 380.dp
-        val veryDense = maxHeight < 500.dp
-        val outerPadding = if (dense) 8.dp else 10.dp
-        val sectionGap = when {
-            veryDense -> 4.dp
-            dense -> 6.dp
-            else -> 10.dp
-        }
+        val fontScale = LocalDensity.current.fontScale
+        val layout = dacLayoutMetrics(
+            maxWidth = maxWidth,
+            maxHeight = maxHeight,
+            fontScale = fontScale,
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(outerPadding),
+                .padding(layout.outerPadding),
         ) {
             ModeTabs(
                 selectedMode = state.mode,
                 onModeSelected = { onAction(MainAction.SelectMode(it)) },
-                modifier = Modifier.height(
-                    when {
-                        veryDense -> 34.dp
-                        dense -> 40.dp
-                        else -> 44.dp
-                    },
-                ),
+                modifier = Modifier.height(layout.modeHeight),
             )
             key(state.mode) {
-                Spacer(Modifier.height(sectionGap))
+                Spacer(Modifier.height(layout.sectionGap))
                 ProfileStrip(
                     profiles = state.profiles,
                     activeProfileId = state.activeProfile.id,
@@ -212,40 +231,41 @@ private fun MainDashboard(
                         onAction(MainAction.MoveProfile(id, index))
                     },
                     onAdd = { profileDialog = ProfileDialogKind.Add },
-                    modifier = Modifier.height(
-                        when {
-                            veryDense -> 38.dp
-                            dense -> 44.dp
-                            else -> 48.dp
-                        },
-                    ),
+                    modifier = Modifier.height(layout.profileHeight),
                 )
-                Spacer(Modifier.height(sectionGap))
+                Spacer(Modifier.height(layout.sectionGap))
                 ProfileToolbar(
                     profile = state.activeProfile,
                     onRename = { profileDialog = ProfileDialogKind.Rename },
                     onDelete = { deleteProfileId = state.activeProfile.id },
                 )
-                Spacer(Modifier.height(sectionGap))
+                Spacer(Modifier.height(layout.sectionGap))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(sectionGap))
-                DashboardCounters(
-                    state = state,
-                    onAction = onAction,
-                    dense = dense,
-                    veryDense = veryDense,
+                Spacer(Modifier.height(layout.sectionGap))
+                BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                )
-                Spacer(Modifier.height(sectionGap))
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DashboardCounters(
+                        state = state,
+                        onAction = onAction,
+                        layout = layout,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(minOf(maxHeight, layout.dashboardMaxHeight)),
+                    )
+                }
+                Spacer(Modifier.height(layout.sectionGap))
                 ResultCard(
                     mode = state.mode,
                     pressure = state.pressure.result,
                     shiftCenti = state.pressure.shiftCenti,
-                    dense = dense,
-                    veryDense = veryDense,
+                    layout = layout,
+                    saved = showSaved,
                     onSave = {
+                        pendingSave = state.activeProfile.id to latestRecordId
                         onAction(MainAction.SaveHistory(state.activeProfile.id))
                     },
                     onHistory = onOpenHistory,
@@ -314,6 +334,7 @@ private fun ModeTabs(
                         },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.4.sp,
                         maxLines = 1,
                     )
                 }
@@ -358,7 +379,7 @@ private fun ProfileToolbar(
         ) {
             ToolbarAction(
                 label = stringResourceCompat(R.string.rename),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
                 onClick = onRename,
                 modifier = Modifier.weight(1f),
             )
@@ -383,10 +404,14 @@ private fun ToolbarAction(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (isPressed) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        },
         label = "toolbar-action-scale",
     )
     val containerColor by animateColorAsState(
@@ -427,7 +452,7 @@ private fun ToolbarAction(
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = label,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -441,16 +466,14 @@ private fun ToolbarAction(
 private fun DashboardCounters(
     state: MainUiState.Content,
     onAction: (MainAction) -> Unit,
-    dense: Boolean,
-    veryDense: Boolean,
+    layout: DacLayoutMetrics,
     modifier: Modifier = Modifier,
 ) {
-    val profile = state.activeProfile
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(if (dense) 6.dp else 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (layout.compact) 6.dp else 8.dp),
     ) {
-        if (veryDense) {
+        if (layout.short) {
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -486,7 +509,7 @@ private fun DashboardCounters(
                         .weight(1f)
                         .fillMaxWidth(),
                 )
-                Spacer(Modifier.height(if (dense) 4.dp else 8.dp))
+                Spacer(Modifier.height(if (layout.compact) 4.dp else 8.dp))
                 MeasuredCounter(
                     state = state,
                     onAction = onAction,
@@ -499,7 +522,7 @@ private fun DashboardCounters(
         MiniHistoryPanel(
             records = state.recentRecords,
             modifier = Modifier
-                .width(if (dense) 68.dp else 76.dp)
+                .width(layout.recordsWidth)
                 .fillMaxHeight(),
         )
     }
@@ -509,8 +532,8 @@ private fun DashboardCounters(
 private fun ReferenceCounter(
     state: MainUiState.Content,
     onAction: (MainAction) -> Unit,
-    reserveActionHeader: Boolean = false,
     modifier: Modifier = Modifier,
+    reserveActionHeader: Boolean = false,
 ) {
     val profile = state.activeProfile
     DigitCounter(
@@ -581,10 +604,14 @@ private fun MeasuredResetAction(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (isPressed) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        },
         label = "measured-reset-scale",
     )
     val containerColor by animateColorAsState(
@@ -633,15 +660,14 @@ private fun MeasuredResetAction(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
-                Text(
-                    text = "↺",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
+                ResetGlyph(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(5.dp))
                 Text(
                     text = stringResourceCompat(R.string.reset),
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                 )
@@ -655,11 +681,13 @@ private fun ResultCard(
     mode: PressureMode,
     pressure: PressureResult,
     shiftCenti: Int,
-    dense: Boolean,
-    veryDense: Boolean,
+    layout: DacLayoutMetrics,
+    saved: Boolean,
     onSave: () -> Unit,
     onHistory: () -> Unit,
 ) {
+    val dense = layout.compact
+    val veryDense = layout.short
     val pressureText = when (pressure) {
         is PressureResult.Valid ->
             "${formatCenti(pressure.pressureCenti)} GPa"
@@ -673,11 +701,7 @@ private fun ResultCard(
         else -> null
     }
     val shiftPrefix = if (shiftCenti > 0) "+" else ""
-    val resultHeight = when {
-        veryDense -> 66.dp
-        dense -> 112.dp
-        else -> 116.dp
-    }
+    val resultHeight = layout.resultHeight
     val resultColors = if (mode == PressureMode.DIAMOND) {
         listOf(Color(0xFF2980B9), Color(0xFF3498DB))
     } else {
@@ -710,17 +734,22 @@ private fun ResultCard(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = pressureText,
-                color = Color.White,
-                fontSize = when {
-                    pressure !is PressureResult.Valid -> if (dense) 22.sp else 28.sp
-                    veryDense -> 26.sp
-                    dense -> 34.sp
-                    else -> 44.sp
-                },
-                fontWeight = FontWeight.ExtraBold,
-                lineHeight = if (dense) 36.sp else 46.sp,
+                Text(
+                    text = pressureText,
+                    color = Color.White,
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontSize = when {
+                            pressure !is PressureResult.Valid ->
+                                if (dense) 22.sp else 28.sp
+                            veryDense -> 26.sp
+                            dense -> 34.sp
+                            else -> 44.sp
+                        },
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFeatureSettings = "tnum",
+                        letterSpacing = (-0.35).sp,
+                        lineHeight = if (dense) 36.sp else 46.sp,
+                    ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -764,7 +793,9 @@ private fun ResultCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ResultActionButton(
-                    label = stringResourceCompat(R.string.save),
+                    label = stringResourceCompat(
+                        if (saved) R.string.saved else R.string.save,
+                    ),
                     primary = true,
                     enabled = pressure is PressureResult.Valid,
                     accent = actionAccent,
@@ -792,7 +823,9 @@ private fun ResultCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ResultActionButton(
-                    label = stringResourceCompat(R.string.save),
+                    label = stringResourceCompat(
+                        if (saved) R.string.saved else R.string.save,
+                    ),
                     primary = true,
                     enabled = pressure is PressureResult.Valid,
                     accent = actionAccent,
@@ -829,10 +862,14 @@ private fun ResultActionButton(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (isPressed) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        },
         label = "result-action-scale",
     )
     val containerColor by animateColorAsState(
@@ -891,13 +928,19 @@ private fun ResultActionButton(
 
 @Composable
 private fun ResultActionLabel(label: String) {
-    Text(
-        text = label,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+    Crossfade(
+        targetState = label,
+        animationSpec = tween(durationMillis = 140),
+        label = "result-action-label",
+    ) { currentLabel ->
+        Text(
+            text = currentLabel,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 private enum class ProfileDialogKind {

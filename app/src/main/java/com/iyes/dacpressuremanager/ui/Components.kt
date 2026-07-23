@@ -1,7 +1,9 @@
 package com.iyes.dacpressuremanager.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -41,6 +43,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -74,6 +77,8 @@ import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.formatCenti
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -122,8 +127,9 @@ fun DigitCounter(
                 Text(
                     text = title,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -135,8 +141,9 @@ fun DigitCounter(
             Text(
                 text = title,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
+                letterSpacing = 0.15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -196,7 +203,7 @@ private fun DigitColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         RepeatAdjustButton(
-            symbol = "+",
+            glyph = OperatorGlyph.Plus,
             description = stringResource(R.string.increase_digit, fieldName, step),
             onAdjust = { onAdjust(definition.deltaCenti) },
             modifier = Modifier
@@ -222,15 +229,18 @@ private fun DigitColumn(
                 Text(
                     text = digit.toString(),
                     color = Color(0xFF00FF41),
-                    fontSize = if (maxHeight < 38.dp) 18.sp else 27.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontSize = if (maxHeight < 38.dp) 18.sp else 27.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFeatureSettings = "tnum",
+                    ),
                     textAlign = TextAlign.Center,
                 )
             }
         }
         Spacer(Modifier.height(2.dp))
         RepeatAdjustButton(
-            symbol = "−",
+            glyph = OperatorGlyph.Minus,
             description = stringResource(R.string.decrease_digit, fieldName, step),
             onAdjust = { onAdjust(-definition.deltaCenti) },
             modifier = Modifier
@@ -255,11 +265,11 @@ private fun DecimalSeparator(
                 .weight(1.45f),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            Text(
-                text = ".",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 1.dp),
+            DecimalGlyph(
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .padding(bottom = 5.dp)
+                    .size(5.dp),
             )
         }
         Spacer(Modifier.weight(1f))
@@ -268,7 +278,7 @@ private fun DecimalSeparator(
 
 @Composable
 private fun RepeatAdjustButton(
-    symbol: String,
+    glyph: OperatorGlyph,
     description: String,
     onAdjust: () -> Unit,
     modifier: Modifier = Modifier,
@@ -324,10 +334,12 @@ private fun RepeatAdjustButton(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = symbol,
-                fontSize = if (maxHeight < 28.dp) 16.sp else 22.sp,
-                fontWeight = FontWeight.Medium,
+            OperatorGlyphIcon(
+                glyph = glyph,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(
+                    if (maxHeight < 28.dp) 16.dp else 20.dp,
+                ),
             )
         }
     }
@@ -345,10 +357,14 @@ fun ProfileStrip(
     val listState = remember { LazyListState() }
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val edgeThresholdPx = with(density) { 48.dp.toPx() }
-    val maxAutoScrollPerFramePx = with(density) { 12.dp.toPx() }
+    val maxAutoScrollPerFramePx = with(density) { 9.dp.toPx() }
     var displayedProfiles by remember { mutableStateOf(profiles) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
+    var settlingId by remember { mutableStateOf<Long?>(null) }
+    var settlingJob by remember { mutableStateOf<Job?>(null) }
+    val settlingTranslation = remember { Animatable(0f) }
     var dragSourceIndex by remember { mutableIntStateOf(-1) }
     var dragDistance by remember { mutableFloatStateOf(0f) }
     var dragPointerX by remember { mutableFloatStateOf(0f) }
@@ -406,6 +422,16 @@ fun ProfileStrip(
             key = { _, profile -> profile.id },
         ) { index, profile ->
             val isDragging = draggingId == profile.id
+            val isSettling = settlingId == profile.id
+            val isLifted = isDragging || isSettling
+            val chipScale by animateFloatAsState(
+                targetValue = if (isLifted) 1.04f else 1f,
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessMedium,
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                ),
+                label = "profile-chip-scale-${profile.id}",
+            )
             val selectedDescription = stringResource(
                 if (profile.id == activeProfileId) {
                     R.string.selected_profile
@@ -459,23 +485,23 @@ fun ProfileStrip(
             FilterChip(
                 selected = profile.id == activeProfileId,
                 onClick = {
-                    if (draggingId == null) {
+                    if (draggingId == null && settlingId == null) {
                         onSelect(profile.id)
                     }
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    containerColor = if (isDragging) {
+                    containerColor = if (isLifted) {
                         profile.mode.dragPreviewColor
                     } else {
                         Color(0xFFE0E0E0)
                     },
-                    labelColor = if (isDragging) Color(0xFF333333) else Color(0xFF555555),
+                    labelColor = if (isLifted) Color(0xFF333333) else Color(0xFF555555),
                     selectedContainerColor = when {
-                        isDragging -> profile.mode.dragPreviewColor
+                        isLifted -> profile.mode.dragPreviewColor
                         profile.mode == PressureMode.DIAMOND -> Color(0xFF2C3E50)
                         else -> Color(0xFFC0392B)
                     },
-                    selectedLabelColor = if (isDragging) Color(0xFF333333) else Color.White,
+                    selectedLabelColor = if (isLifted) Color(0xFF333333) else Color.White,
                 ),
                 label = {
                     Text(
@@ -488,7 +514,7 @@ fun ProfileStrip(
                     .animateItem(
                         fadeInSpec = null,
                         fadeOutSpec = null,
-                        placementSpec = if (isDragging) {
+                        placementSpec = if (isLifted) {
                             null
                         } else {
                             spring(
@@ -498,29 +524,31 @@ fun ProfileStrip(
                         },
                     )
                     .widthIn(min = 60.dp, max = 120.dp)
-                    .heightIn(min = 34.dp, max = 44.dp)
-                    .zIndex(if (isDragging) 2f else 0f)
+                    .heightIn(min = 40.dp, max = 48.dp)
+                    .zIndex(if (isLifted) 2f else 0f)
                     .shadow(
-                        elevation = if (isDragging) 8.dp else 0.dp,
+                        elevation = if (isLifted) 8.dp else 0.dp,
                         shape = RoundedCornerShape(20.dp),
                         clip = false,
                     )
                     .graphicsLayer {
-                        translationX = if (isDragging) {
-                            val currentOffset = listState.layoutInfo.visibleItemsInfo
-                                .firstOrNull { it.key == profile.id }
-                                ?.offset
-                                ?.toFloat()
-                            if (currentOffset == null) {
-                                0f
-                            } else {
-                                initialDraggingItemOffset + dragDistance - currentOffset
+                        translationX = when {
+                            isDragging -> {
+                                val currentOffset = listState.layoutInfo.visibleItemsInfo
+                                    .firstOrNull { it.key == profile.id }
+                                    ?.offset
+                                    ?.toFloat()
+                                if (currentOffset == null) {
+                                    0f
+                                } else {
+                                    initialDraggingItemOffset + dragDistance - currentOffset
+                                }
                             }
-                        } else {
-                            0f
+                            isSettling -> settlingTranslation.value
+                            else -> 0f
                         }
-                        scaleX = if (isDragging) 1.04f else 1f
-                        scaleY = if (isDragging) 1.04f else 1f
+                        scaleX = chipScale
+                        scaleY = chipScale
                     }
                     .semantics {
                         contentDescription = selectedDescription
@@ -532,6 +560,11 @@ fun ProfileStrip(
                                 val itemInfo = listState.layoutInfo.visibleItemsInfo
                                     .firstOrNull { it.key == profile.id }
                                     ?: return@detectDragGesturesAfterLongPress
+                                settlingJob?.cancel()
+                                settlingId = null
+                                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                    settlingTranslation.snapTo(0f)
+                                }
                                 displayedProfiles = profiles
                                 draggingId = profile.id
                                 dragSourceIndex = profiles.indexOfFirst {
@@ -562,9 +595,40 @@ fun ProfileStrip(
                                 val targetIndex = displayedProfiles.indexOfFirst {
                                     it.id == id
                                 }
+                                val currentOffset = listState.layoutInfo.visibleItemsInfo
+                                    .firstOrNull { it.key == id }
+                                    ?.offset
+                                    ?.toFloat()
+                                val releaseTranslation = if (currentOffset == null) {
+                                    0f
+                                } else {
+                                    initialDraggingItemOffset + dragDistance - currentOffset
+                                }
                                 autoScrollPerFrame = 0f
-                                draggingId = null
-                                dragDistance = 0f
+                                if (id != null) {
+                                    settlingJob?.cancel()
+                                    settlingJob = scope.launch(
+                                        start = CoroutineStart.UNDISPATCHED,
+                                    ) {
+                                        settlingTranslation.snapTo(releaseTranslation)
+                                        settlingId = id
+                                        draggingId = null
+                                        dragDistance = 0f
+                                        settlingTranslation.animateTo(
+                                            targetValue = 0f,
+                                            animationSpec = spring(
+                                                stiffness = Spring.StiffnessMediumLow,
+                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                            ),
+                                        )
+                                        if (settlingId == id) {
+                                            settlingId = null
+                                        }
+                                    }
+                                } else {
+                                    draggingId = null
+                                    dragDistance = 0f
+                                }
                                 if (
                                     id != null &&
                                     dragSourceIndex >= 0 &&
@@ -578,8 +642,10 @@ fun ProfileStrip(
                                 dragSourceIndex = -1
                             },
                             onDragCancel = {
+                                settlingJob?.cancel()
                                 autoScrollPerFrame = 0f
                                 draggingId = null
+                                settlingId = null
                                 dragSourceIndex = -1
                                 dragDistance = 0f
                                 displayedProfiles = profiles
@@ -590,9 +656,9 @@ fun ProfileStrip(
         }
         item(key = "add-profile") {
             val addProfileDescription = stringResource(R.string.add_profile_description)
-            Surface(
+            Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(48.dp)
                     .semantics {
                         role = Role.Button
                         contentDescription = addProfileDescription
@@ -604,12 +670,21 @@ fun ProfileStrip(
                     .pointerInput(Unit) {
                         detectTapGestures(onTap = { onAdd() })
                     },
-                shape = RoundedCornerShape(19.dp),
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                contentAlignment = Alignment.Center,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Surface(
+                    modifier = Modifier.size(38.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        OperatorGlyphIcon(
+                            glyph = OperatorGlyph.Plus,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
@@ -638,8 +713,8 @@ fun MiniHistoryPanel(
             Text(
                 text = stringResource(R.string.records),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                fontSize = 10.sp,
-                lineHeight = 12.sp,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
@@ -722,7 +797,7 @@ private fun MiniHistoryItem(
         Text(
             text = formatCenti(record.pressureCenti),
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )

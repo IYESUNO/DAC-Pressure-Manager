@@ -15,6 +15,7 @@
     <string name="close">Close</string>
     <string name="create">Create</string>
     <string name="save">Save</string>
+    <string name="saved">Saved</string>
     <string name="history">History</string>
     <string name="history_records">History Records</string>
     <string name="clear_all">Clear All</string>
