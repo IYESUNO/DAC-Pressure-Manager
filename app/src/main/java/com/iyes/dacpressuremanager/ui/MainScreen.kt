@@ -39,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -201,53 +202,55 @@ private fun MainDashboard(
                     },
                 ),
             )
-            Spacer(Modifier.height(sectionGap))
-            ProfileStrip(
-                profiles = state.profiles,
-                activeProfileId = state.activeProfile.id,
-                onSelect = { onAction(MainAction.SelectProfile(it)) },
-                onMove = { id, index ->
-                    onAction(MainAction.MoveProfile(id, index))
-                },
-                onAdd = { profileDialog = ProfileDialogKind.Add },
-                modifier = Modifier.height(
-                    when {
-                        veryDense -> 38.dp
-                        dense -> 44.dp
-                        else -> 48.dp
+            key(state.mode) {
+                Spacer(Modifier.height(sectionGap))
+                ProfileStrip(
+                    profiles = state.profiles,
+                    activeProfileId = state.activeProfile.id,
+                    onSelect = { onAction(MainAction.SelectProfile(it)) },
+                    onMove = { id, index ->
+                        onAction(MainAction.MoveProfile(id, index))
                     },
-                ),
-            )
-            Spacer(Modifier.height(sectionGap))
-            ProfileToolbar(
-                profile = state.activeProfile,
-                onRename = { profileDialog = ProfileDialogKind.Rename },
-                onDelete = { deleteProfileId = state.activeProfile.id },
-            )
-            Spacer(Modifier.height(sectionGap))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(sectionGap))
-            DashboardCounters(
-                state = state,
-                onAction = onAction,
-                dense = dense,
-                veryDense = veryDense,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            )
-            Spacer(Modifier.height(sectionGap))
-            ResultCard(
-                mode = state.mode,
-                pressure = state.pressure.result,
-                shiftCenti = state.pressure.shiftCenti,
-                dense = dense,
-                veryDense = veryDense,
-                onSave = {
-                    onAction(MainAction.SaveHistory(state.activeProfile.id))
-                },
-                onHistory = onOpenHistory,
-            )
+                    onAdd = { profileDialog = ProfileDialogKind.Add },
+                    modifier = Modifier.height(
+                        when {
+                            veryDense -> 38.dp
+                            dense -> 44.dp
+                            else -> 48.dp
+                        },
+                    ),
+                )
+                Spacer(Modifier.height(sectionGap))
+                ProfileToolbar(
+                    profile = state.activeProfile,
+                    onRename = { profileDialog = ProfileDialogKind.Rename },
+                    onDelete = { deleteProfileId = state.activeProfile.id },
+                )
+                Spacer(Modifier.height(sectionGap))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(sectionGap))
+                DashboardCounters(
+                    state = state,
+                    onAction = onAction,
+                    dense = dense,
+                    veryDense = veryDense,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+                Spacer(Modifier.height(sectionGap))
+                ResultCard(
+                    mode = state.mode,
+                    pressure = state.pressure.result,
+                    shiftCenti = state.pressure.shiftCenti,
+                    dense = dense,
+                    veryDense = veryDense,
+                    onSave = {
+                        onAction(MainAction.SaveHistory(state.activeProfile.id))
+                    },
+                    onHistory = onOpenHistory,
+                )
+            }
         }
     }
 }

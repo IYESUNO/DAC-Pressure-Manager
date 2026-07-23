@@ -54,6 +54,7 @@ class HistoryViewModel(
             }
             is HistoryAction.ClearHistory -> launchCommand {
                 repository.clearHistory(action.profileId)
+                navigateBack.value = true
             }
             is HistoryAction.ReportMessage -> message.value = action.message
             HistoryAction.Retry -> repository.retryInitialization()
@@ -77,4 +78,3 @@ class HistoryViewModel(
             HistoryViewModel(repository) as T
     }
 }
-

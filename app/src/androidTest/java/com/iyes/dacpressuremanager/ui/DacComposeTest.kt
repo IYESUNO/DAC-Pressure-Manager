@@ -3,6 +3,7 @@ package com.iyes.dacpressuremanager.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,11 +19,18 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.iyes.dacpressuremanager.data.DacRepository
+import com.iyes.dacpressuremanager.domain.CommandResult
+import com.iyes.dacpressuremanager.domain.DacDataState
+import com.iyes.dacpressuremanager.domain.DacSnapshot
 import com.iyes.dacpressuremanager.domain.HistoryRecord
+import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.ui.theme.DacTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -65,6 +73,89 @@ class DacComposeTest {
         assertTrue(actions.any { it is MainAction.Reset })
         assertTrue(actions.any { it is MainAction.SaveHistory })
         assertTrue(openedHistory)
+    }
+
+    @Test
+    fun switchingModeReplacesAllModeSpecificDashboardContent() {
+        val repository = FakeDacRepository()
+        val viewModel = MainViewModel(repository)
+        composeRule.setContent {
+            val state by viewModel.uiState.collectAsState()
+            val mode = (state as? MainUiState.Content)?.mode ?: PressureMode.DIAMOND
+            DacTheme(mode) {
+                MainScreen(
+                    state = state,
+                    onAction = viewModel::dispatch,
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Diamond #1")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("RUBY").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Ruby #1")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Reference (λ₀)").assertIsDisplayed()
+        composeRule.onNodeWithText("Measured (λ)").assertIsDisplayed()
+        assertTrue(
+            composeRule.onAllNodesWithText("Diamond #1")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+
+        composeRule.onNodeWithText("DIAMOND").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Diamond #1")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Reference (ω₀)").assertIsDisplayed()
+        composeRule.onNodeWithText("Measured (ω)").assertIsDisplayed()
+        assertTrue(
+            composeRule.onAllNodesWithText("Ruby #1")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun confirmedClearAllReturnsFromHistoryToMain() {
+        val repository = FakeDacRepository()
+        val mainViewModel = MainViewModel(repository)
+        val historyViewModel = HistoryViewModel(repository)
+        composeRule.setContent {
+            val mainState by mainViewModel.uiState.collectAsState()
+            val historyState by historyViewModel.uiState.collectAsState()
+            val mode = (mainState as? MainUiState.Content)?.mode ?: PressureMode.DIAMOND
+            DacTheme(mode) {
+                DacApp(
+                    mainState = mainState,
+                    historyState = historyState,
+                    onMainAction = mainViewModel::dispatch,
+                    onHistoryAction = historyViewModel::dispatch,
+                )
+            }
+        }
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("History")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("History").performClick()
+        composeRule.onNodeWithText("History Records").assertIsDisplayed()
+        composeRule.onNodeWithText("Clear All").performClick()
+        composeRule.onAllNodesWithText("Clear All")[1].performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("History Records")
+                .fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithText("DIAMOND").assertIsDisplayed()
+        assertEquals(listOf(1L), repository.clearedProfileIds)
     }
 
     @Test
@@ -295,4 +386,106 @@ class DacComposeTest {
         measuredCenti = 140_000,
         pressureCenti = 2_939,
     )
+
+    private class FakeDacRepository : DacRepository {
+        val clearedProfileIds = mutableListOf<Long>()
+
+        private val mutableDataState = MutableStateFlow<DacDataState>(
+            DacDataState.Ready(
+                DacSnapshot(
+                    currentMode = PressureMode.DIAMOND,
+                    diamondActiveProfileId = 1,
+                    rubyActiveProfileId = 2,
+                    profiles = listOf(
+                        Profile(
+                            id = 1,
+                            mode = PressureMode.DIAMOND,
+                            name = "Diamond #1",
+                            referenceCenti = 133_300,
+                            measuredCenti = 140_000,
+                            sortOrder = 0,
+                        ),
+                        Profile(
+                            id = 2,
+                            mode = PressureMode.RUBY,
+                            name = "Ruby #1",
+                            referenceCenti = 69_424,
+                            measuredCenti = 70_000,
+                            sortOrder = 0,
+                        ),
+                    ),
+                    historyRecords = listOf(
+                        HistoryRecord(
+                            id = 5,
+                            profileId = 1,
+                            createdAtEpochMillis = 1_000,
+                            referenceCenti = 133_300,
+                            measuredCenti = 140_000,
+                            pressureCenti = 2_939,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        override val dataState: StateFlow<DacDataState> = mutableDataState
+
+        override fun retryInitialization() = Unit
+
+        override suspend fun setCurrentMode(mode: PressureMode) {
+            updateSnapshot { it.copy(currentMode = mode) }
+        }
+
+        override suspend fun selectProfile(profileId: Long) {
+            updateSnapshot { snapshot ->
+                val mode = snapshot.profiles.first { it.id == profileId }.mode
+                if (mode == PressureMode.DIAMOND) {
+                    snapshot.copy(diamondActiveProfileId = profileId)
+                } else {
+                    snapshot.copy(rubyActiveProfileId = profileId)
+                }
+            }
+        }
+
+        override suspend fun addProfile(name: String): Long =
+            error("Not used by this test")
+
+        override suspend fun renameProfile(profileId: Long, name: String) = Unit
+
+        override suspend fun deleteProfile(profileId: Long): CommandResult =
+            CommandResult.Success
+
+        override suspend fun moveProfile(profileId: Long, targetIndex: Int) = Unit
+
+        override suspend fun adjustValue(
+            profileId: Long,
+            field: MeasurementField,
+            deltaCenti: Int,
+        ) = Unit
+
+        override suspend fun resetMeasured(profileId: Long) = Unit
+
+        override suspend fun saveHistory(profileId: Long): CommandResult =
+            CommandResult.Success
+
+        override suspend fun restoreHistory(recordId: Long) = Unit
+
+        override suspend fun deleteHistory(recordId: Long) = Unit
+
+        override suspend fun clearHistory(profileId: Long) {
+            clearedProfileIds += profileId
+            updateSnapshot { snapshot ->
+                snapshot.copy(
+                    historyRecords = snapshot.historyRecords.filterNot {
+                        it.profileId == profileId
+                    },
+                )
+            }
+        }
+
+        private fun updateSnapshot(transform: (DacSnapshot) -> DacSnapshot) {
+            val ready = mutableDataState.value as DacDataState.Ready
+            mutableDataState.value = DacDataState.Ready(transform(ready.snapshot))
+        }
+    }
 }
