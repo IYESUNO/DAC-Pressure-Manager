@@ -493,15 +493,19 @@ fun ProfileStrip(
                     containerColor = if (isLifted) {
                         profile.mode.dragPreviewColor
                     } else {
-                        Color(0xFFE0E0E0)
+                        MaterialTheme.colorScheme.surfaceVariant
                     },
-                    labelColor = if (isLifted) Color(0xFF333333) else Color(0xFF555555),
+                    labelColor = if (isLifted) {
+                        Color(0xFF2D2D2D)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     selectedContainerColor = when {
                         isLifted -> profile.mode.dragPreviewColor
                         profile.mode == PressureMode.DIAMOND -> Color(0xFF2C3E50)
                         else -> Color(0xFFC0392B)
                     },
-                    selectedLabelColor = if (isLifted) Color(0xFF333333) else Color.White,
+                    selectedLabelColor = if (isLifted) Color(0xFF2D2D2D) else Color.White,
                 ),
                 label = {
                     Text(

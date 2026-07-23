@@ -10,7 +10,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 internal enum class OperatorGlyph {
     Plus,
@@ -55,41 +58,49 @@ internal fun ResetGlyph(
 ) {
     Canvas(modifier = modifier) {
         val strokePx = strokeWidth.toPx()
-        val diameter = min(size.width, size.height) * 0.68f
+        val diameter = min(size.width, size.height) * 0.72f
+        val radius = diameter / 2f
         val topLeft = Offset(
             x = (size.width - diameter) / 2f,
             y = (size.height - diameter) / 2f,
         )
         drawArc(
             color = color,
-            startAngle = -65f,
-            sweepAngle = 300f,
+            startAngle = 130f,
+            sweepAngle = -280f,
             useCenter = false,
             topLeft = topLeft,
             size = Size(diameter, diameter),
             style = Stroke(width = strokePx, cap = StrokeCap.Round),
         )
+
+        val endAngle = 210f * PI.toFloat() / 180f
         val arrowTip = Offset(
-            x = topLeft.x + diameter * 0.11f,
-            y = topLeft.y + diameter * 0.28f,
+            x = center.x + radius * cos(endAngle),
+            y = center.y + radius * sin(endAngle),
         )
+        val direction = Offset(
+            x = -0.5f,
+            y = 0.866f,
+        )
+        val perpendicular = Offset(
+            x = -direction.y,
+            y = direction.x,
+        )
+        val arrowLength = diameter * 0.25f
+        val arrowWidth = diameter * 0.14f
+        val arrowBase = arrowTip - direction * arrowLength
         drawLine(
             color = color,
             start = arrowTip,
-            end = Offset(
-                x = arrowTip.x + diameter * 0.28f,
-                y = arrowTip.y - diameter * 0.02f,
-            ),
+            end = arrowBase + perpendicular * arrowWidth,
             strokeWidth = strokePx,
             cap = StrokeCap.Round,
         )
         drawLine(
             color = color,
             start = arrowTip,
-            end = Offset(
-                x = arrowTip.x + diameter * 0.06f,
-                y = arrowTip.y + diameter * 0.27f,
-            ),
+            end = arrowBase - perpendicular * arrowWidth,
             strokeWidth = strokePx,
             cap = StrokeCap.Round,
         )

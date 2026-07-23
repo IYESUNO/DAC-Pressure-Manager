@@ -14,6 +14,9 @@ Capacitor、WebView 或网络功能；原始 HTML 位于项目目录之外，仅
 应用 ID 保持为 `com.iyes.dacpressuremanager`。界面使用 Jetpack Compose 和 Material 3；
 结构化离线数据使用 Room 2.8.4。
 
+界面自动跟随 Android 系统的明暗模式。应用内置 Roboto 可变字体，避免厂商主题或用户
+替换系统字体后破坏仪表布局；字体许可见 `ROBOTO-OFL.txt`。
+
 ## 代码结构
 
 ```text
@@ -43,6 +46,7 @@ Repository，项目刻意不引入 Hilt、Retrofit、WorkManager、DataStore 或
 - 模式、活动档案、档案名称/顺序和数值变化都会自动保存。
 - UI 使用乐观状态即时响应，写入命令按操作顺序串行提交到 Room。
 - 主仪表盘直接铺满可用屏幕，不使用外层卡片或阴影，也不做纵向滚动；Records 始终位于计数器右侧。
+- 深色模式使用分层黑灰表面和高对比度浅色文字，保留 Diamond 蓝、Ruby 红及绿色数字屏。
 - 档案长按排序使用 Compose 系统手势检测与列表位移动画：拖动时仅预览占位顺序，
   支持一次跨过多个档案，松手后才向 Room 提交一次最终顺序。
 - 完整历史以覆盖主界面的弹窗显示，弹窗内部记录列表可滚动。

@@ -27,8 +27,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
         setContent {
             val mainState by mainViewModel.uiState.collectAsStateWithLifecycle()
             val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
@@ -50,4 +50,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

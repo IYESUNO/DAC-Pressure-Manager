@@ -3,6 +3,7 @@ package com.iyes.dacpressuremanager.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -328,7 +329,7 @@ private fun ModeTabs(
                             stringResourceCompat(R.string.mode_ruby)
                         },
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimary
+                            Color.White
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -358,11 +359,7 @@ private fun ProfileToolbar(
     ) {
         Text(
             text = profile.name,
-            color = if (profile.mode == PressureMode.DIAMOND) {
-                Color(0xFF2C3E50)
-            } else {
-                Color(0xFFC0392B)
-            },
+            color = MaterialTheme.colorScheme.primary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 2,
@@ -858,6 +855,7 @@ private fun ResultActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val darkTheme = isSystemInDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -874,7 +872,12 @@ private fun ResultActionButton(
     )
     val containerColor by animateColorAsState(
         targetValue = when {
+            !enabled && primary && darkTheme ->
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
             !enabled && primary -> Color.White.copy(alpha = 0.22f)
+            primary && darkTheme && isPressed ->
+                MaterialTheme.colorScheme.surfaceVariant
+            primary && darkTheme -> MaterialTheme.colorScheme.surface
             primary && isPressed -> Color.White.copy(alpha = 0.88f)
             primary -> Color.White
             isPressed -> Color.White.copy(alpha = 0.12f)
@@ -884,6 +887,7 @@ private fun ResultActionButton(
     )
     val contentColor = when {
         !enabled -> Color.White.copy(alpha = 0.58f)
+        primary && darkTheme -> MaterialTheme.colorScheme.onSurface
         primary -> accent
         else -> Color.White
     }
@@ -913,7 +917,12 @@ private fun ResultActionButton(
             shape = RoundedCornerShape(8.dp),
             color = containerColor,
             contentColor = contentColor,
-            border = if (primary) {
+            border = if (primary && darkTheme) {
+                BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.72f),
+                )
+            } else if (primary) {
                 null
             } else {
                 BorderStroke(1.dp, Color.White.copy(alpha = 0.55f))
