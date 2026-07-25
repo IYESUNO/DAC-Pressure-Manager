@@ -13,8 +13,8 @@ android {
         applicationId = "com.iyes.dacpressuremanager"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "2.0.2"
+        versionCode = 5
+        versionName = "2.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -27,6 +27,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            resValue("string", "app_name", "DAC Pressure Manager Debug")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

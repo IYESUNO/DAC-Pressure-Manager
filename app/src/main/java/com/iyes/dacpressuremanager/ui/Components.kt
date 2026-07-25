@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -284,6 +285,7 @@ private fun RepeatAdjustButton(
     modifier: Modifier = Modifier,
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val currentOnAdjust by rememberUpdatedState(onAdjust)
     val background by animateColorAsState(
         targetValue = if (isPressed) {
             MaterialTheme.colorScheme.primaryContainer
@@ -303,26 +305,29 @@ private fun RepeatAdjustButton(
                     true
                 }
             }
-            .pointerInput(onAdjust) {
+            .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
                         isPressed = true
-                        var repeated = false
-                        coroutineScope {
-                            val repeatJob = launch {
-                                delay(800)
-                                repeated = true
-                                onAdjust()
-                                while (true) {
-                                    delay(100)
-                                    onAdjust()
+                        try {
+                            var repeated = false
+                            coroutineScope {
+                                val repeatJob = launch {
+                                    delay(800)
+                                    repeated = true
+                                    currentOnAdjust()
+                                    while (true) {
+                                        delay(200)
+                                        currentOnAdjust()
+                                    }
                                 }
+                                val released = tryAwaitRelease()
+                                repeatJob.cancelAndJoin()
+                                if (released && !repeated) currentOnAdjust()
                             }
-                            val released = tryAwaitRelease()
-                            repeatJob.cancelAndJoin()
-                            if (released && !repeated) onAdjust()
+                        } finally {
+                            isPressed = false
                         }
-                        isPressed = false
                     },
                 )
             },

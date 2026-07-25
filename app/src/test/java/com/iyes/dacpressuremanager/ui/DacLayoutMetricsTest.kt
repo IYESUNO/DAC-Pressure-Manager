@@ -19,6 +19,7 @@ class DacLayoutMetricsTest {
         assertFalse(layout.short)
         assertEquals(370.dp, layout.dashboardMaxHeight)
         assertEquals(112.dp, layout.resultHeight)
+        assertEquals(0.dp, layout.resultBottomLift)
     }
 
     @Test
@@ -33,6 +34,7 @@ class DacLayoutMetricsTest {
         assertFalse(layout.short)
         assertEquals(350.dp, layout.dashboardMaxHeight)
         assertEquals(104.dp, layout.resultHeight)
+        assertEquals(28.dp, layout.resultBottomLift)
     }
 
     @Test
@@ -47,6 +49,7 @@ class DacLayoutMetricsTest {
         assertTrue(layout.short)
         assertEquals(280.dp, layout.dashboardMaxHeight)
         assertEquals(72.dp, layout.resultHeight)
+        assertEquals(0.dp, layout.resultBottomLift)
     }
 
     @Test
@@ -60,5 +63,17 @@ class DacLayoutMetricsTest {
         assertTrue(layout.compact)
         assertEquals(8.dp, layout.outerPadding)
         assertEquals(6.dp, layout.sectionGap)
+    }
+
+    @Test
+    fun narrowPhone_withoutExtraHeightDoesNotLiftResultCard() {
+        val layout = dacLayoutMetrics(
+            maxWidth = 360.dp,
+            maxHeight = 640.dp,
+            fontScale = 1f,
+        )
+
+        assertTrue(layout.compact)
+        assertEquals(0.dp, layout.resultBottomLift)
     }
 }
