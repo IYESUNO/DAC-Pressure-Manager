@@ -271,6 +271,10 @@ private fun HistoryHeader(
             OutlinedButton(
                 onClick = { exportMenuExpanded = true },
                 enabled = content?.records?.isNotEmpty() == true,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary,
+                ),
             ) {
                 Text(stringResource(R.string.export))
             }

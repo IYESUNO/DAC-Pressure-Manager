@@ -62,7 +62,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +72,7 @@ import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.formatCenti
+import com.iyes.dacpressuremanager.ui.theme.DacResultFontFamily
 import kotlinx.coroutines.delay
 
 @Composable
@@ -746,7 +746,7 @@ private fun ResultCard(
                             dense -> 34.sp
                             else -> 44.sp
                         },
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = DacResultFontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontFeatureSettings = "tnum",
                         letterSpacing = (-0.35).sp,

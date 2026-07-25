@@ -1,9 +1,13 @@
 package com.iyes.dacpressuremanager.ui.theme
 
+import android.os.Build
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.iyes.dacpressuremanager.R
 
@@ -11,6 +15,26 @@ private val PlatformTypography = Typography()
 private val DacFontFamily = FontFamily(
     Font(R.font.dac_roboto),
 )
+
+@OptIn(ExperimentalTextApi::class)
+val DacResultFontFamily = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    FontFamily(
+        Font(
+            resId = R.font.dac_roboto,
+            weight = FontWeight.ExtraBold,
+            variationSettings = FontVariation.Settings(
+                FontVariation.weight(FontWeight.ExtraBold.weight),
+            ),
+        ),
+    )
+} else {
+    FontFamily(
+        Font(
+            resId = R.font.dac_roboto,
+            weight = FontWeight.ExtraBold,
+        ),
+    )
+}
 
 private fun TextStyle.withDacFont(
     tracking: androidx.compose.ui.unit.TextUnit = 0.sp,
