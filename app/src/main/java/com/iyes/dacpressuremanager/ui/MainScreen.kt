@@ -271,6 +271,7 @@ private fun MainDashboard(
                     },
                     onHistory = onOpenHistory,
                 )
+                Spacer(Modifier.height(layout.resultBottomLift))
             }
         }
     }
@@ -657,9 +658,11 @@ private fun MeasuredResetAction(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
-                ResetGlyph(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
+                Text(
+                    text = stringResourceCompat(R.string.reset_symbol),
+                    fontSize = 17.sp,
+                    lineHeight = 17.sp,
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.width(5.dp))
                 Text(
@@ -742,7 +745,7 @@ private fun ResultCard(
                             dense -> 34.sp
                             else -> 44.sp
                         },
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Black,
                         fontFeatureSettings = "tnum",
                         letterSpacing = (-0.35).sp,
                         lineHeight = if (dense) 36.sp else 46.sp,
