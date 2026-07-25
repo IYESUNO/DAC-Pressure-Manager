@@ -268,7 +268,7 @@ private fun HistoryHeader(
             }
         }
         Box {
-            Button(
+            OutlinedButton(
                 onClick = { exportMenuExpanded = true },
                 enabled = content?.records?.isNotEmpty() == true,
             ) {

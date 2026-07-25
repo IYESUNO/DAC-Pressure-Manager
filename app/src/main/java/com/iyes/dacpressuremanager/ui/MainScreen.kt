@@ -62,6 +62,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -745,7 +746,8 @@ private fun ResultCard(
                             dense -> 34.sp
                             else -> 44.sp
                         },
-                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.ExtraBold,
                         fontFeatureSettings = "tnum",
                         letterSpacing = (-0.35).sp,
                         lineHeight = if (dense) 36.sp else 46.sp,
