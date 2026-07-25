@@ -1,6 +1,6 @@
 # DAC Pressure Manager（原生 Android）
 
-这是 `DAC-Pressure-Manager.html` 的离线原生 Android 重写。项目不包含 HTML、JavaScript、
+这是 [DAC-Pressure-Manager.html](https://apps.9527857.xyz/DAC-Pressure-Manager.html) 的离线原生 Android 重写。项目不包含 HTML、JavaScript、
 Capacitor、WebView 或网络功能；原始 HTML 位于项目目录之外，仅作为功能核对基准。
 
 ## 开发环境
