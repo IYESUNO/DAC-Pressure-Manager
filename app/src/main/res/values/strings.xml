@@ -41,6 +41,7 @@
     <string name="delete_profile_message">Delete “%1$s” and all of its history?</string>
     <string name="clear_history_title">Clear all history?</string>
     <string name="clear_history_message">All history for “%1$s” will be permanently removed.</string>
+    <string name="export_success">CSV file exported successfully.</string>
     <string name="export_failed">Unable to export the CSV file.</string>
     <string name="share_failed">Unable to open the Android share panel.</string>
     <string name="database_error">Unable to load local data.</string>

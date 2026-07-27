@@ -1063,6 +1063,7 @@ internal fun uiMessageText(message: UiMessage): String = when (message) {
     UiMessage.KEEP_ONE_PROFILE -> stringResourceCompat(R.string.keep_one_profile)
     UiMessage.CANNOT_SAVE_OUT_OF_RANGE -> stringResourceCompat(R.string.cannot_save_range)
     UiMessage.DATABASE_ERROR -> stringResourceCompat(R.string.database_error)
+    UiMessage.EXPORT_SUCCESS -> stringResourceCompat(R.string.export_success)
     UiMessage.EXPORT_FAILED -> stringResourceCompat(R.string.export_failed)
     UiMessage.SHARE_FAILED -> stringResourceCompat(R.string.share_failed)
 }

@@ -115,7 +115,7 @@ fun HistoryDialog(
                 ) {
                     HistoryHeader(
                         content = content,
-                        onExportError = {
+                        onExportMessage = {
                             onAction(HistoryAction.ReportMessage(it))
                         },
                     )
@@ -218,7 +218,7 @@ fun HistoryDialog(
 @Composable
 private fun HistoryHeader(
     content: HistoryUiState.Content?,
-    onExportError: (UiMessage) -> Unit,
+    onExportMessage: (UiMessage) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -237,8 +237,10 @@ private fun HistoryHeader(
                     withContext(Dispatchers.IO) {
                         AndroidCsvExporter.writeToUri(context, uri, document)
                     }
+                }.onSuccess {
+                    onExportMessage(UiMessage.EXPORT_SUCCESS)
                 }.onFailure {
-                    onExportError(UiMessage.EXPORT_FAILED)
+                    onExportMessage(UiMessage.EXPORT_FAILED)
                 }
             }
         }
@@ -307,7 +309,7 @@ private fun HistoryHeader(
                             runCatching {
                                 AndroidCsvExporter.share(context, document)
                             }.onFailure {
-                                onExportError(UiMessage.SHARE_FAILED)
+                                onExportMessage(UiMessage.SHARE_FAILED)
                             }
                         }
                     },
