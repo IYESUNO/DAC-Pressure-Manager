@@ -365,7 +365,7 @@ fun ProfileStrip(
     val scope = rememberCoroutineScope()
     val edgeThresholdPx = with(density) { 48.dp.toPx() }
     val maxAutoScrollPerFramePx = with(density) { 9.dp.toPx() }
-    var displayedProfiles by remember { mutableStateOf(profiles) }
+    var previewProfiles by remember { mutableStateOf(profiles) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
     var settlingId by remember { mutableStateOf<Long?>(null) }
     var settlingJob by remember { mutableStateOf<Job?>(null) }
@@ -376,15 +376,15 @@ fun ProfileStrip(
     var initialDraggingItemOffset by remember { mutableFloatStateOf(0f) }
     var autoScrollPerFrame by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(profiles) {
-        if (draggingId == null) {
-            displayedProfiles = profiles
-        }
+    val displayedProfiles = if (draggingId != null || settlingId != null) {
+        previewProfiles
+    } else {
+        profiles
     }
 
     fun updatePreviewOrder(movementX: Float) {
         val id = draggingId ?: return
-        displayedProfiles = reorderProfilesForDrag(
+        previewProfiles = reorderProfilesForDrag(
             profiles = displayedProfiles,
             draggedId = id,
             visibleItems = listState.layoutInfo.visibleItemsInfo.map { item ->
@@ -574,7 +574,7 @@ fun ProfileStrip(
                                 scope.launch(start = CoroutineStart.UNDISPATCHED) {
                                     settlingTranslation.snapTo(0f)
                                 }
-                                displayedProfiles = profiles
+                                previewProfiles = profiles
                                 draggingId = profile.id
                                 dragSourceIndex = profiles.indexOfFirst {
                                     it.id == profile.id
@@ -646,7 +646,7 @@ fun ProfileStrip(
                                 ) {
                                     onMove(id, targetIndex)
                                 } else {
-                                    displayedProfiles = profiles
+                                    previewProfiles = profiles
                                 }
                                 dragSourceIndex = -1
                             },
@@ -657,7 +657,7 @@ fun ProfileStrip(
                                 settlingId = null
                                 dragSourceIndex = -1
                                 dragDistance = 0f
-                                displayedProfiles = profiles
+                                previewProfiles = profiles
                             },
                         )
                     },

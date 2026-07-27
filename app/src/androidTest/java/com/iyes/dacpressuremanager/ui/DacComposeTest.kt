@@ -76,6 +76,41 @@ class DacComposeTest {
     }
 
     @Test
+    fun confirmedProfileDeleteRemovesChipWithoutSwitchingModes() {
+        val remainingProfile = profile()
+        val deletedProfile = remainingProfile.copy(
+            id = 3,
+            name = "Diamond #2",
+            sortOrder = 1,
+        )
+        var state by mutableStateOf(
+            mainContent(listOf(deletedProfile, remainingProfile)),
+        )
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                MainScreen(
+                    state = state,
+                    onAction = { action ->
+                        if (action == MainAction.DeleteProfile(deletedProfile.id)) {
+                            state = mainContent(listOf(remainingProfile))
+                        }
+                    },
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.onAllNodesWithText("Delete")[1].performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText(deletedProfile.name)
+                .fetchSemanticsNodes().isEmpty()
+        }
+
+        composeRule.onNodeWithText(remainingProfile.name).assertIsDisplayed()
+    }
+
+    @Test
     fun switchingModeReplacesAllModeSpecificDashboardContent() {
         val repository = FakeDacRepository()
         val viewModel = MainViewModel(repository)
