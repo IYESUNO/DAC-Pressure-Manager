@@ -7,6 +7,7 @@ data class Profile(
     val referenceCenti: Int,
     val measuredCenti: Int,
     val sortOrder: Int,
+    val temperatureK: Int = RubyTemperature.ROOM_K,
 )
 
 data class HistoryRecord(
@@ -16,6 +17,7 @@ data class HistoryRecord(
     val referenceCenti: Int,
     val measuredCenti: Int,
     val pressureCenti: Int,
+    val temperatureK: Int = RubyTemperature.ROOM_K,
 )
 
 data class DacSnapshot(
@@ -57,4 +59,3 @@ sealed interface CommandResult {
     data object KeepOneProfile : CommandResult
     data class PressureOutOfRange(val result: PressureResult) : CommandResult
 }
-

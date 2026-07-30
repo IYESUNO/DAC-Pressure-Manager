@@ -11,6 +11,7 @@ import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.RubyTemperature
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +49,7 @@ class MainViewModel(
                         mode = snapshot.currentMode,
                         referenceCenti = activeProfile.referenceCenti,
                         measuredCenti = activeProfile.measuredCenti,
+                        temperatureK = activeProfile.temperatureK,
                     ),
                     message = currentMessage,
                 )
@@ -182,6 +184,42 @@ class MainViewModel(
                     }
                 }
             }
+            is MainAction.SetTemperature -> {
+                val profile = contentProfile(action.profileId)
+                if (
+                    profile != null &&
+                    profile.mode == PressureMode.RUBY &&
+                    RubyTemperature.isValid(action.temperatureK)
+                ) {
+                    optimisticState.update { state ->
+                        val current = state.values[action.profileId]
+                            ?: PendingOverride(
+                                target = ProfileValues(
+                                    referenceCenti = profile.referenceCenti,
+                                    measuredCenti = profile.measuredCenti,
+                                    temperatureK = profile.temperatureK,
+                                ),
+                                pendingWrites = 0,
+                            )
+                        state.copy(
+                            values = state.values + (
+                                action.profileId to current.copy(
+                                    target = current.target.copy(
+                                        temperatureK = action.temperatureK,
+                                    ),
+                                    pendingWrites = current.pendingWrites + 1,
+                                )
+                            ),
+                        )
+                    }
+                    enqueueCommand(
+                        onSuccess = { completeValueWrite(action.profileId) },
+                        onFailure = { clearValueOverride(action.profileId) },
+                    ) {
+                        repository.setTemperature(action.profileId, action.temperatureK)
+                    }
+                }
+            }
             is MainAction.Reset -> {
                 val profile = contentProfile(action.profileId)
                 if (profile == null) {
@@ -193,6 +231,7 @@ class MainViewModel(
                                 target = ProfileValues(
                                     referenceCenti = profile.referenceCenti,
                                     measuredCenti = profile.measuredCenti,
+                                    temperatureK = profile.temperatureK,
                                 ),
                                 pendingWrites = 0,
                             )
@@ -260,6 +299,7 @@ class MainViewModel(
                     target = ProfileValues(
                         referenceCenti = profile.referenceCenti,
                         measuredCenti = profile.measuredCenti,
+                        temperatureK = profile.temperatureK,
                     ),
                     pendingWrites = 0,
                 )
@@ -372,6 +412,7 @@ private data class PendingOverride<T>(
 private data class ProfileValues(
     val referenceCenti: Int,
     val measuredCenti: Int,
+    val temperatureK: Int,
 )
 
 private data class MainOptimisticState(
@@ -412,6 +453,7 @@ private fun DacSnapshot.applyOptimistic(
             name = optimistic.names[profile.id]?.target ?: profile.name,
             referenceCenti = values?.referenceCenti ?: profile.referenceCenti,
             measuredCenti = values?.measuredCenti ?: profile.measuredCenti,
+            temperatureK = values?.temperatureK ?: profile.temperatureK,
             sortOrder = orderIndexes[profile.mode]?.get(profile.id) ?: profile.sortOrder,
         )
     }
@@ -443,7 +485,8 @@ private fun MainOptimisticState.reconcile(
     values = values.filterValuesByKey { profileId, pending ->
         snapshot.profiles.firstOrNull { it.id == profileId }?.let { profile ->
             profile.referenceCenti == pending.target.referenceCenti &&
-                profile.measuredCenti == pending.target.measuredCenti
+                profile.measuredCenti == pending.target.measuredCenti &&
+                profile.temperatureK == pending.target.temperatureK
         } == true
     },
 )

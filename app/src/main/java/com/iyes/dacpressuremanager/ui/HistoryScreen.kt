@@ -52,6 +52,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.iyes.dacpressuremanager.R
 import com.iyes.dacpressuremanager.domain.HistoryRecord
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.PressureMode
+import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.formatCenti
 import com.iyes.dacpressuremanager.export.AndroidCsvExporter
 import com.iyes.dacpressuremanager.export.CsvExporter
@@ -409,12 +411,25 @@ private fun HistoryRecordRow(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = stringResource(
-                        R.string.history_values,
-                        formatCenti(record.referenceCenti),
-                        formatCenti(record.measuredCenti),
-                        profile.mode.unit,
-                    ),
+                    text = if (
+                        profile.mode == PressureMode.RUBY &&
+                        record.temperatureK != RubyTemperature.ROOM_K
+                    ) {
+                        stringResource(
+                            R.string.history_values_temperature,
+                            formatCenti(record.referenceCenti),
+                            formatCenti(record.measuredCenti),
+                            profile.mode.unit,
+                            record.temperatureK,
+                        )
+                    } else {
+                        stringResource(
+                            R.string.history_values,
+                            formatCenti(record.referenceCenti),
+                            formatCenti(record.measuredCenti),
+                            profile.mode.unit,
+                        )
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

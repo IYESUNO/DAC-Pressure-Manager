@@ -144,6 +144,33 @@ class RoomDacRepositoryTest {
     }
 
     @Test
+    fun rubyTemperatureIsStoredPerProfileAndRestoredWithHistory() = runBlocking {
+        repository.setCurrentMode(PressureMode.RUBY)
+        val ruby = requireNotNull(
+            awaitSnapshot { it.currentMode == PressureMode.RUBY }
+                .activeProfile(PressureMode.RUBY),
+        )
+        repository.setTemperature(ruby.id, 278)
+        repository.adjustValue(ruby.id, MeasurementField.MEASURED, 100)
+        assertEquals(CommandResult.Success, repository.saveHistory(ruby.id))
+
+        val saved = awaitSnapshot {
+            it.activeProfile(PressureMode.RUBY)?.temperatureK == 278 &&
+                it.historyFor(ruby.id).isNotEmpty()
+        }
+        val record = saved.historyFor(ruby.id).first()
+        assertEquals(278, record.temperatureK)
+        assertEquals(308, record.pressureCenti)
+
+        repository.setTemperature(ruby.id, 298)
+        repository.restoreHistory(record.id)
+        val restored = awaitSnapshot {
+            it.activeProfile(PressureMode.RUBY)?.temperatureK == 278
+        }
+        assertEquals(278, restored.activeProfile(PressureMode.RUBY)?.temperatureK)
+    }
+
+    @Test
     fun historyIsCappedRestorableClearableAndCalibrationProtected() = runBlocking {
         val profileId = requireNotNull(awaitSnapshot().activeProfile()).id
         repeat(51) {

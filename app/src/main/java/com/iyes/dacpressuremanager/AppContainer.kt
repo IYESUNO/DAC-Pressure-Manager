@@ -18,6 +18,7 @@ class AppContainer(context: Context) {
         klass = DacDatabase::class.java,
         name = "dac-pressure-manager.db",
     ).setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+        .addMigrations(DacDatabase.MIGRATION_1_2)
         .build()
 
     val repository: DacRepository = RoomDacRepository(

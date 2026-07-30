@@ -76,6 +76,54 @@ class DacComposeTest {
     }
 
     @Test
+    fun rubyTemperatureDialogShowsCelsiusAndAppliesOneKelvinStep() {
+        val actions = mutableListOf<MainAction>()
+        val ruby = Profile(
+            id = 2,
+            mode = PressureMode.RUBY,
+            name = "Ruby #1",
+            referenceCenti = 69_424,
+            measuredCenti = 69_524,
+            sortOrder = 0,
+        )
+        composeRule.setContent {
+            DacTheme(PressureMode.RUBY) {
+                MainScreen(
+                    state = MainUiState.Content(
+                        mode = PressureMode.RUBY,
+                        profiles = listOf(ruby),
+                        activeProfile = ruby,
+                        recentRecords = emptyList(),
+                        pressure = PressureCalculator.calculate(
+                            PressureMode.RUBY,
+                            ruby.referenceCenti,
+                            ruby.measuredCenti,
+                            ruby.temperatureK,
+                        ),
+                        message = null,
+                    ),
+                    onAction = actions::add,
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(
+            "Adjust Ruby temperature, currently 298 K",
+        ).performClick()
+        composeRule.onNodeWithText("Temperature").assertIsDisplayed()
+        composeRule.onNodeWithText("25 °C").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Decrease temperature by 1 K").performClick()
+        composeRule.onNodeWithText("Apply").performClick()
+
+        assertTrue(
+            actions.any {
+                it == MainAction.SetTemperature(profileId = ruby.id, temperatureK = 297)
+            },
+        )
+    }
+
+    @Test
     fun confirmedProfileDeleteRemovesChipWithoutSwitchingModes() {
         val remainingProfile = profile()
         val deletedProfile = remainingProfile.copy(
@@ -497,6 +545,8 @@ class DacComposeTest {
             field: MeasurementField,
             deltaCenti: Int,
         ) = Unit
+
+        override suspend fun setTemperature(profileId: Long, temperatureK: Int) = Unit
 
         override suspend fun resetMeasured(profileId: Long) = Unit
 

@@ -1,5 +1,6 @@
 package com.iyes.dacpressuremanager.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -31,6 +32,8 @@ data class ProfileEntity(
     val referenceCenti: Int,
     val measuredCenti: Int,
     val sortOrder: Int,
+    @ColumnInfo(defaultValue = "298")
+    val temperatureK: Int = 298,
 )
 
 @Entity(
@@ -55,5 +58,6 @@ data class HistoryRecordEntity(
     val referenceCenti: Int,
     val measuredCenti: Int,
     val pressureCenti: Int,
+    @ColumnInfo(defaultValue = "298")
+    val temperatureK: Int = 298,
 )
-
