@@ -43,6 +43,7 @@
     <string name="no_history">No history yet</string>
     <string name="pressure_gpa">%1$s GPa</string>
     <string name="shift">Shift: %1$s %2$s</string>
+    <string name="shift_with_temperature">Shift: %1$s %2$s (%3$d K)</string>
     <string name="history_values">R: %1$s | M: %2$s %3$s</string>
     <string name="history_values_temperature">R: %1$s | M: %2$s %3$s | T: %4$d K</string>
     <string name="out_of_range">OUT OF RANGE</string>

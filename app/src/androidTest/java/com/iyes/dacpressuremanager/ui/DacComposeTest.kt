@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -124,6 +125,47 @@ class DacComposeTest {
     }
 
     @Test
+    fun rubyResultShowsOnlyNonRoomTemperatureAfterShift() {
+        var ruby by mutableStateOf(
+            Profile(
+                id = 2,
+                mode = PressureMode.RUBY,
+                name = "Ruby #1",
+                referenceCenti = 69_424,
+                measuredCenti = 69_524,
+                sortOrder = 0,
+            ),
+        )
+        composeRule.setContent {
+            DacTheme(PressureMode.RUBY) {
+                MainScreen(
+                    state = MainUiState.Content(
+                        mode = PressureMode.RUBY,
+                        profiles = listOf(ruby),
+                        activeProfile = ruby,
+                        recentRecords = emptyList(),
+                        pressure = PressureCalculator.calculate(
+                            PressureMode.RUBY,
+                            ruby.referenceCenti,
+                            ruby.measuredCenti,
+                            ruby.temperatureK,
+                        ),
+                        message = null,
+                    ),
+                    onAction = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Shift: +1.00 nm").assertIsDisplayed()
+
+        ruby = ruby.copy(temperatureK = 200)
+
+        composeRule.onNodeWithText("Shift: +1.00 nm (200 K)").assertIsDisplayed()
+    }
+
+    @Test
     fun confirmedProfileDeleteRemovesChipWithoutSwitchingModes() {
         val remainingProfile = profile()
         val deletedProfile = remainingProfile.copy(
@@ -155,7 +197,7 @@ class DacComposeTest {
                 .fetchSemanticsNodes().isEmpty()
         }
 
-        composeRule.onNodeWithText(remainingProfile.name).assertIsDisplayed()
+        composeRule.onAllNodesWithText(remainingProfile.name).assertCountEquals(2)
     }
 
     @Test
