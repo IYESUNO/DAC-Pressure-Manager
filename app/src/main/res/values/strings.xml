@@ -38,7 +38,7 @@
     <string name="temperature_increase">Increase temperature by 1 K</string>
     <string name="temperature_decrease">Decrease temperature by 1 K</string>
     <string name="room_temperature">Room Temperature · 298 K</string>
-    <string name="temperature_range_error">Enter a whole number from 150 to 400 K.</string>
+    <string name="temperature_range_error">Enter a whole number from 0 to 400 K.</string>
     <string name="records">Records</string>
     <string name="no_history">No history yet</string>
     <string name="pressure_gpa">%1$s GPa</string>

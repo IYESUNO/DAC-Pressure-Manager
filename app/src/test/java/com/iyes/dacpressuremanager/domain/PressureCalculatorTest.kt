@@ -71,13 +71,13 @@ class PressureCalculatorTest {
     }
 
     @Test
-    fun rubyTemperatureBoundsAndCelsiusHintMatchWebRules() {
-        assertTrue(RubyTemperature.isValid(150))
+    fun rubyTemperatureBoundsAndCelsiusHintMatchSupportedRange() {
+        assertTrue(RubyTemperature.isValid(0))
         assertTrue(RubyTemperature.isValid(400))
-        assertTrue(!RubyTemperature.isValid(149))
+        assertTrue(!RubyTemperature.isValid(-1))
         assertTrue(!RubyTemperature.isValid(401))
         assertEquals(25, RubyTemperature.toRoundedCelsius(298))
-        assertEquals(-123, RubyTemperature.toRoundedCelsius(150))
+        assertEquals(-273, RubyTemperature.toRoundedCelsius(0))
     }
 
     @Test

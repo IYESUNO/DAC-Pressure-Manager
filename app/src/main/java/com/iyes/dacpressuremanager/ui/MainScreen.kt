@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -68,7 +69,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -666,19 +672,65 @@ private fun TemperatureDialog(
     onDismiss: () -> Unit,
     onApply: (Int) -> Unit,
 ) {
-    var draft by rememberSaveable(initialTemperatureK) {
-        mutableStateOf(initialTemperatureK.toString())
+    var draft by rememberSaveable(
+        initialTemperatureK,
+        stateSaver = TextFieldValue.Saver,
+    ) {
+        val initialText = initialTemperatureK.toString()
+        mutableStateOf(
+            TextFieldValue(
+                text = initialText,
+                selection = TextRange(initialText.length),
+            ),
+        )
     }
-    val temperatureK = draft.toIntOrNull()
+    val temperatureK = draft.text.toIntOrNull()
     val isValid = temperatureK?.let(RubyTemperature::isValid) == true
     val focusManager = LocalFocusManager.current
     val kelvinUnit = stringResourceCompat(R.string.temperature_kelvin_unit)
+    val unitColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val unitFontSize = MaterialTheme.typography.titleLarge.fontSize
+    val temperatureVisualTransformation = remember(
+        kelvinUnit,
+        unitColor,
+        unitFontSize,
+    ) {
+        VisualTransformation { text ->
+            val originalLength = text.length
+            TransformedText(
+                text = buildAnnotatedString {
+                    append(text)
+                    append(' ')
+                    withStyle(
+                        SpanStyle(
+                            color = unitColor,
+                            fontSize = unitFontSize,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    ) {
+                        append(kelvinUnit)
+                    }
+                },
+                offsetMapping = object : OffsetMapping {
+                    override fun originalToTransformed(offset: Int): Int =
+                        offset.coerceIn(0, originalLength)
+
+                    override fun transformedToOriginal(offset: Int): Int =
+                        offset.coerceIn(0, originalLength)
+                },
+            )
+        }
+    }
 
     fun step(delta: Int) {
         val current = temperatureK ?: initialTemperatureK
-        draft = (current + delta)
+        val steppedText = (current + delta)
             .coerceIn(RubyTemperature.MIN_K, RubyTemperature.MAX_K)
             .toString()
+        draft = TextFieldValue(
+            text = steppedText,
+            selection = TextRange(steppedText.length),
+        )
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -714,7 +766,10 @@ private fun TemperatureDialog(
                     BasicTextField(
                         value = draft,
                         onValueChange = { candidate ->
-                            if (candidate.length <= 3 && candidate.all(Char::isDigit)) {
+                            if (
+                                candidate.text.length <= 3 &&
+                                candidate.text.all(Char::isDigit)
+                            ) {
                                 draft = candidate
                             }
                         },
@@ -725,7 +780,7 @@ private fun TemperatureDialog(
                             .border(
                                 BorderStroke(
                                     1.dp,
-                                    if (draft.isNotEmpty() && !isValid) {
+                                    if (draft.text.isNotEmpty() && !isValid) {
                                         MaterialTheme.colorScheme.error
                                     } else {
                                         MaterialTheme.colorScheme.outline
@@ -739,8 +794,10 @@ private fun TemperatureDialog(
                             fontWeight = FontWeight.Bold,
                             fontFeatureSettings = "tnum",
                             textAlign = TextAlign.Center,
-                            color = Color.Transparent,
+                            color = MaterialTheme.colorScheme.onSurface,
                         ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        visualTransformation = temperatureVisualTransformation,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Done,
@@ -759,32 +816,10 @@ private fun TemperatureDialog(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = 0f },
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     innerTextField()
                                 }
-                                Text(
-                                    text = buildAnnotatedString {
-                                        append(draft)
-                                        append(' ')
-                                        withStyle(
-                                            SpanStyle(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = MaterialTheme.typography.titleLarge.fontSize,
-                                                fontWeight = FontWeight.Bold,
-                                            ),
-                                        ) {
-                                            append(kelvinUnit)
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFeatureSettings = "tnum",
-                                    ),
-                                )
                             }
                         },
                     )
@@ -803,7 +838,11 @@ private fun TemperatureDialog(
                 }
                 OutlinedButton(
                     onClick = {
-                        draft = RubyTemperature.ROOM_K.toString()
+                        val roomTemperature = RubyTemperature.ROOM_K.toString()
+                        draft = TextFieldValue(
+                            text = roomTemperature,
+                            selection = TextRange(roomTemperature.length),
+                        )
                         focusManager.clearFocus()
                     },
                     modifier = Modifier
