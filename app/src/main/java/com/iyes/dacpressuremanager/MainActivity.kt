@@ -1,6 +1,10 @@
 package com.iyes.dacpressuremanager
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +20,11 @@ import com.iyes.dacpressuremanager.ui.MainViewModel
 import com.iyes.dacpressuremanager.ui.theme.DacTheme
 
 class MainActivity : ComponentActivity() {
+    private val screenTimeoutHandler = Handler(Looper.getMainLooper())
+    private val stopKeepingScreenOn = Runnable {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
     private val repository by lazy {
         (application as DacApplication).container.repository
     }
@@ -49,4 +58,46 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        restartExtendedScreenTimeout()
+    }
+
+    override fun onPause() {
+        screenTimeoutHandler.removeCallbacks(stopKeepingScreenOn)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        super.onPause()
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        restartExtendedScreenTimeout()
+    }
+
+    private fun restartExtendedScreenTimeout() {
+        val systemTimeoutMs = Settings.System.getLong(
+            contentResolver,
+            Settings.System.SCREEN_OFF_TIMEOUT,
+            DEFAULT_SYSTEM_SCREEN_TIMEOUT_MS,
+        )
+        val extendedTimeoutMs = calculateExtendedScreenTimeoutMs(systemTimeoutMs)
+        screenTimeoutHandler.removeCallbacks(stopKeepingScreenOn)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        screenTimeoutHandler.postDelayed(stopKeepingScreenOn, extendedTimeoutMs)
+    }
+
+    private companion object {
+        const val DEFAULT_SYSTEM_SCREEN_TIMEOUT_MS = 2 * 60 * 1_000L
+    }
+}
+
+internal fun calculateExtendedScreenTimeoutMs(systemTimeoutMs: Long): Long {
+    val usableSystemTimeoutMs = systemTimeoutMs.takeIf { it > 0 }
+        ?: 2 * 60 * 1_000L
+    return (usableSystemTimeoutMs.coerceAtMost(5 * 60 * 1_000L) * 2)
+        .coerceIn(
+            minimumValue = 3 * 60 * 1_000L,
+            maximumValue = 10 * 60 * 1_000L,
+        )
 }

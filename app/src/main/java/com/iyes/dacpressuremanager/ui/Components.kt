@@ -385,7 +385,7 @@ fun ProfileStrip(
     fun updatePreviewOrder(movementX: Float) {
         val id = draggingId ?: return
         previewProfiles = reorderProfilesForDrag(
-            profiles = displayedProfiles,
+            profiles = previewProfiles,
             draggedId = id,
             visibleItems = listState.layoutInfo.visibleItemsInfo.map { item ->
                 DragItemBounds(
@@ -601,7 +601,7 @@ fun ProfileStrip(
                             },
                             onDragEnd = {
                                 val id = draggingId
-                                val targetIndex = displayedProfiles.indexOfFirst {
+                                val targetIndex = previewProfiles.indexOfFirst {
                                     it.id == id
                                 }
                                 val currentOffset = listState.layoutInfo.visibleItemsInfo

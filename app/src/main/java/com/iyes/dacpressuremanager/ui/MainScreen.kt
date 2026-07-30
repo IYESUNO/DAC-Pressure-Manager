@@ -315,6 +315,7 @@ private fun MainDashboard(
                     mode = state.mode,
                     pressure = state.pressure.result,
                     shiftCenti = state.pressure.shiftCenti,
+                    temperatureK = state.activeProfile.temperatureK,
                     layout = layout,
                     saved = showSaved,
                     onSave = {
@@ -1074,6 +1075,7 @@ private fun ResultCard(
     mode: PressureMode,
     pressure: PressureResult,
     shiftCenti: Int,
+    temperatureK: Int,
     layout: DacLayoutMetrics,
     saved: Boolean,
     onSave: () -> Unit,
@@ -1094,6 +1096,9 @@ private fun ResultCard(
         else -> null
     }
     val shiftPrefix = if (shiftCenti > 0) "+" else ""
+    val shiftText = "$shiftPrefix${formatCenti(shiftCenti)}"
+    val showTemperature = mode == PressureMode.RUBY &&
+        temperatureK != RubyTemperature.ROOM_K
     val resultHeight = layout.resultHeight
     val resultColors = if (mode == PressureMode.DIAMOND) {
         listOf(Color(0xFF2980B9), Color(0xFF3498DB))
@@ -1148,11 +1153,20 @@ private fun ResultCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = androidx.compose.ui.res.stringResource(
-                    R.string.shift,
-                    "$shiftPrefix${formatCenti(shiftCenti)}",
-                    mode.unit,
-                ),
+                text = if (showTemperature) {
+                    androidx.compose.ui.res.stringResource(
+                        R.string.shift_with_temperature,
+                        shiftText,
+                        mode.unit,
+                        temperatureK,
+                    )
+                } else {
+                    androidx.compose.ui.res.stringResource(
+                        R.string.shift,
+                        shiftText,
+                        mode.unit,
+                    )
+                },
                 color = if (shiftCenti < 0) {
                     Color(0xFFFFCCCB)
                 } else {

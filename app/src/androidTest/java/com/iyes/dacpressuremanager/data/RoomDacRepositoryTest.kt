@@ -145,6 +145,7 @@ class RoomDacRepositoryTest {
 
     @Test
     fun rubyTemperatureIsStoredPerProfileAndRestoredWithHistory() = runBlocking {
+        awaitSnapshot()
         repository.setCurrentMode(PressureMode.RUBY)
         val ruby = requireNotNull(
             awaitSnapshot { it.currentMode == PressureMode.RUBY }
