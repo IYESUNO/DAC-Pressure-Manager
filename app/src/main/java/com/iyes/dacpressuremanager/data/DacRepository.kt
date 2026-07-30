@@ -18,10 +18,10 @@ interface DacRepository {
     suspend fun deleteProfile(profileId: Long): CommandResult
     suspend fun moveProfile(profileId: Long, targetIndex: Int)
     suspend fun adjustValue(profileId: Long, field: MeasurementField, deltaCenti: Int)
+    suspend fun setTemperature(profileId: Long, temperatureK: Int)
     suspend fun resetMeasured(profileId: Long)
     suspend fun saveHistory(profileId: Long): CommandResult
     suspend fun restoreHistory(recordId: Long)
     suspend fun deleteHistory(recordId: Long)
     suspend fun clearHistory(profileId: Long)
 }
-

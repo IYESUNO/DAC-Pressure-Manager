@@ -31,11 +31,15 @@ object PressureCalculator {
     private const val DIAMOND_MAX_GPA = 310.0
     private const val RUBY_A = 1904.0
     private const val RUBY_B = 7.665
+    private const val RUBY_A_TEMPERATURE_COEFFICIENT = 0.46299
+    private const val RUBY_WAVELENGTH_LINEAR_COEFFICIENT = 0.0060823
+    private const val RUBY_WAVELENGTH_QUADRATIC_COEFFICIENT = 1.0264e-6
 
     fun calculate(
         mode: PressureMode,
         referenceCenti: Int,
         measuredCenti: Int,
+        temperatureK: Int = RubyTemperature.ROOM_K,
     ): PressureComputation {
         val shiftCenti = measuredCenti - referenceCenti
         val reference = referenceCenti / 100.0
@@ -49,8 +53,20 @@ object PressureCalculator {
                 DIAMOND_K0 * ratio * term
             }
             else -> {
-                val ratio = measured / reference
-                (RUBY_A / RUBY_B) * (ratio.pow(RUBY_B) - 1.0)
+                require(RubyTemperature.isValid(temperatureK)) {
+                    "Ruby temperature must be between ${RubyTemperature.MIN_K} and " +
+                        "${RubyTemperature.MAX_K} K."
+                }
+                val temperatureOffset = temperatureK - RubyTemperature.ROOM_K
+                val temperatureAdjustedA =
+                    RUBY_A + RUBY_A_TEMPERATURE_COEFFICIENT * temperatureOffset
+                val temperatureAdjustedReference =
+                    reference +
+                        RUBY_WAVELENGTH_LINEAR_COEFFICIENT * temperatureOffset +
+                        RUBY_WAVELENGTH_QUADRATIC_COEFFICIENT *
+                        temperatureOffset.toDouble().pow(2)
+                val ratio = measured / temperatureAdjustedReference
+                (temperatureAdjustedA / RUBY_B) * (ratio.pow(RUBY_B) - 1.0)
             }
         }
 
@@ -82,4 +98,3 @@ fun formatCenti(value: Int): String {
     val sign = if (value < 0) "-" else ""
     return "$sign${absolute / 100}.${(absolute % 100).toString().padStart(2, '0')}"
 }
-

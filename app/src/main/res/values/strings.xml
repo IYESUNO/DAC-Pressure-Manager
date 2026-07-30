@@ -26,11 +26,25 @@
     <string name="reset">Reset</string>
     <string name="reset_symbol" translatable="false">↺</string>
     <string name="reset_measured_description">Reset measured to reference</string>
+    <string name="temperature">Temperature</string>
+    <string name="temperature_button">T= %1$d K</string>
+    <string name="temperature_description">Adjust Ruby temperature, currently %1$d K</string>
+    <string name="temperature_kelvin">%1$d K</string>
+    <string name="temperature_kelvin_unit" translatable="false">K</string>
+    <string name="temperature_celsius">%1$d °C</string>
+    <string name="temperature_celsius_unavailable" translatable="false">— °C</string>
+    <string name="temperature_minus_symbol" translatable="false">−</string>
+    <string name="temperature_plus_symbol" translatable="false">+</string>
+    <string name="temperature_increase">Increase temperature by 1 K</string>
+    <string name="temperature_decrease">Decrease temperature by 1 K</string>
+    <string name="room_temperature">Room Temperature · 298 K</string>
+    <string name="temperature_range_error">Enter a whole number from 150 to 400 K.</string>
     <string name="records">Records</string>
     <string name="no_history">No history yet</string>
     <string name="pressure_gpa">%1$s GPa</string>
     <string name="shift">Shift: %1$s %2$s</string>
     <string name="history_values">R: %1$s | M: %2$s %3$s</string>
+    <string name="history_values_temperature">R: %1$s | M: %2$s %3$s | T: %4$d K</string>
     <string name="out_of_range">OUT OF RANGE</string>
     <string name="calibration_high">Exceeds AK2006 maximum: 310 GPa</string>
     <string name="calibration_negative">AK2006 does not support negative pressure</string>

@@ -61,6 +61,41 @@ class CsvExporterTest {
     }
 
     @Test
+    fun rubyCsvAddsTemperatureOnlyWhenHistoryContainsNonRoomRecord() {
+        val rubyProfile = Profile(
+            id = 20,
+            mode = PressureMode.RUBY,
+            name = "Ruby #1",
+            referenceCenti = 69_424,
+            measuredCenti = 69_524,
+            sortOrder = 0,
+        )
+        val roomRecord = HistoryRecord(
+            id = 1,
+            profileId = 20,
+            createdAtEpochMillis = 1_000,
+            referenceCenti = 69_424,
+            measuredCenti = 69_524,
+            pressureCenti = 276,
+        )
+        val roomText = exporter.build(rubyProfile, listOf(roomRecord))
+            .bytes.toString(StandardCharsets.UTF_8)
+        assertFalse(roomText.contains("Temperature (K)"))
+
+        val correctedRecord = roomRecord.copy(
+            id = 2,
+            createdAtEpochMillis = 2_000,
+            pressureCenti = 308,
+            temperatureK = 278,
+        )
+        val correctedText = exporter.build(rubyProfile, listOf(roomRecord, correctedRecord))
+            .bytes.toString(StandardCharsets.UTF_8)
+        assertTrue(correctedText.contains("Input Unit,Temperature (K),Pressure (GPa)"))
+        assertTrue(correctedText.contains("nm,298,2.76"))
+        assertTrue(correctedText.contains("nm,278,3.08"))
+    }
+
+    @Test
     fun fileNameSanitizationHasSafeFallbackAndLengthLimit() {
         assertEquals("Profile", exporter.sanitizeFileName("... --- "))
         assertEquals(80, exporter.sanitizeFileName("x".repeat(100)).length)

@@ -51,6 +51,36 @@ class PressureCalculatorTest {
     }
 
     @Test
+    fun rubyTemperatureCorrectionMatchesLegacyApplicationVectors() {
+        val expectedByTemperature = mapOf(
+            298 to 276,
+            288 to 292,
+            278 to 308,
+            238 to 370,
+            208 to 416,
+        )
+        expectedByTemperature.forEach { (temperatureK, expectedPressureCenti) ->
+            val result = PressureCalculator.calculate(
+                mode = PressureMode.RUBY,
+                referenceCenti = 69_424,
+                measuredCenti = 69_524,
+                temperatureK = temperatureK,
+            ).result as PressureResult.Valid
+            assertEquals(expectedPressureCenti, result.pressureCenti)
+        }
+    }
+
+    @Test
+    fun rubyTemperatureBoundsAndCelsiusHintMatchWebRules() {
+        assertTrue(RubyTemperature.isValid(150))
+        assertTrue(RubyTemperature.isValid(400))
+        assertTrue(!RubyTemperature.isValid(149))
+        assertTrue(!RubyTemperature.isValid(401))
+        assertEquals(25, RubyTemperature.toRoundedCelsius(298))
+        assertEquals(-123, RubyTemperature.toRoundedCelsius(150))
+    }
+
+    @Test
     fun diamondRejectsNegativeAndAboveCalibrationPressures() {
         assertTrue(
             PressureCalculator.calculate(

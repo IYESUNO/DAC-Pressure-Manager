@@ -40,6 +40,7 @@ sealed interface MainAction {
         val field: MeasurementField,
         val deltaCenti: Int,
     ) : MainAction
+    data class SetTemperature(val profileId: Long, val temperatureK: Int) : MainAction
     data class Reset(val profileId: Long) : MainAction
     data class SaveHistory(val profileId: Long) : MainAction
     data object Retry : MainAction
@@ -66,4 +67,3 @@ sealed interface HistoryAction {
     data object MessageShown : HistoryAction
     data object NavigationHandled : HistoryAction
 }
-

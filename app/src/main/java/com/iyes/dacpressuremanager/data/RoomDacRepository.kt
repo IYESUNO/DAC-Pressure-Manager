@@ -15,6 +15,7 @@ import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.RubyTemperature
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -201,6 +202,20 @@ class RoomDacRepository(
         }
     }
 
+    override suspend fun setTemperature(
+        profileId: Long,
+        temperatureK: Int,
+    ) = writeMutex.withLock {
+        require(RubyTemperature.isValid(temperatureK))
+        database.withTransaction {
+            val profile = dao.getProfile(profileId) ?: return@withTransaction
+            if (PressureMode.fromStorage(profile.mode) != PressureMode.RUBY) {
+                return@withTransaction
+            }
+            dao.updateProfileTemperature(profileId, temperatureK)
+        }
+    }
+
     override suspend fun resetMeasured(profileId: Long) = writeMutex.withLock {
         database.withTransaction {
             val profile = dao.getProfile(profileId) ?: return@withTransaction
@@ -220,6 +235,7 @@ class RoomDacRepository(
                 mode = mode,
                 referenceCenti = profile.referenceCenti,
                 measuredCenti = profile.measuredCenti,
+                temperatureK = profile.temperatureK,
             ).result
             if (result !is PressureResult.Valid) {
                 return@withTransaction CommandResult.PressureOutOfRange(result)
@@ -231,6 +247,7 @@ class RoomDacRepository(
                     referenceCenti = profile.referenceCenti,
                     measuredCenti = profile.measuredCenti,
                     pressureCenti = result.pressureCenti,
+                    temperatureK = profile.temperatureK,
                 ),
             )
             dao.trimHistory(profileId, HISTORY_LIMIT)
@@ -247,6 +264,12 @@ class RoomDacRepository(
                 referenceCenti = record.referenceCenti,
                 measuredCenti = record.measuredCenti,
             )
+            if (PressureMode.fromStorage(profile.mode) == PressureMode.RUBY) {
+                dao.updateProfileTemperature(
+                    profileId = profile.id,
+                    temperatureK = record.temperatureK,
+                )
+            }
         }
     }
 
@@ -330,6 +353,7 @@ private fun ProfileEntity.toDomain(): Profile = Profile(
     referenceCenti = referenceCenti,
     measuredCenti = measuredCenti,
     sortOrder = sortOrder,
+    temperatureK = temperatureK,
 )
 
 private fun HistoryRecordEntity.toDomain(): HistoryRecord = HistoryRecord(
@@ -339,5 +363,5 @@ private fun HistoryRecordEntity.toDomain(): HistoryRecord = HistoryRecord(
     referenceCenti = referenceCenti,
     measuredCenti = measuredCenti,
     pressureCenti = pressureCenti,
+    temperatureK = temperatureK,
 )
-

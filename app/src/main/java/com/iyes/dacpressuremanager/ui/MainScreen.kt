@@ -2,6 +2,7 @@ package com.iyes.dacpressuremanager.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -19,9 +20,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -41,6 +44,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,11 +63,24 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iyes.dacpressuremanager.R
@@ -71,9 +88,12 @@ import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.formatCenti
 import com.iyes.dacpressuremanager.ui.theme.DacResultFontFamily
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(
@@ -121,6 +141,7 @@ private fun MainDashboard(
 ) {
     var profileDialog by rememberSaveable { mutableStateOf<ProfileDialogKind?>(null) }
     var deleteProfileId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var temperatureDialogProfileId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingSave by remember { mutableStateOf<Pair<Long, Long?>?>(null) }
     var showSaved by remember { mutableStateOf(false) }
     val latestRecordId = state.recentRecords.firstOrNull()?.id
@@ -128,6 +149,9 @@ private fun MainDashboard(
     LaunchedEffect(state.activeProfile.id) {
         pendingSave = null
         showSaved = false
+        if (temperatureDialogProfileId != state.activeProfile.id) {
+            temperatureDialogProfileId = null
+        }
     }
     LaunchedEffect(latestRecordId, pendingSave) {
         val request = pendingSave
@@ -199,6 +223,24 @@ private fun MainDashboard(
             },
         )
     }
+    if (
+        temperatureDialogProfileId == state.activeProfile.id &&
+        state.activeProfile.mode == PressureMode.RUBY
+    ) {
+        TemperatureDialog(
+            initialTemperatureK = state.activeProfile.temperatureK,
+            onDismiss = { temperatureDialogProfileId = null },
+            onApply = { temperatureK ->
+                onAction(
+                    MainAction.SetTemperature(
+                        profileId = state.activeProfile.id,
+                        temperatureK = temperatureK,
+                    ),
+                )
+                temperatureDialogProfileId = null
+            },
+        )
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -253,6 +295,9 @@ private fun MainDashboard(
                     DashboardCounters(
                         state = state,
                         onAction = onAction,
+                        onTemperatureClick = {
+                            temperatureDialogProfileId = state.activeProfile.id
+                        },
                         layout = layout,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -465,6 +510,7 @@ private fun ToolbarAction(
 private fun DashboardCounters(
     state: MainUiState.Content,
     onAction: (MainAction) -> Unit,
+    onTemperatureClick: () -> Unit,
     layout: DacLayoutMetrics,
     modifier: Modifier = Modifier,
 ) {
@@ -482,6 +528,7 @@ private fun DashboardCounters(
                 ReferenceCounter(
                     state = state,
                     onAction = onAction,
+                    onTemperatureClick = onTemperatureClick,
                     reserveActionHeader = true,
                     modifier = Modifier
                         .weight(1f)
@@ -504,6 +551,7 @@ private fun DashboardCounters(
                 ReferenceCounter(
                     state = state,
                     onAction = onAction,
+                    onTemperatureClick = onTemperatureClick,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -531,6 +579,7 @@ private fun DashboardCounters(
 private fun ReferenceCounter(
     state: MainUiState.Content,
     onAction: (MainAction) -> Unit,
+    onTemperatureClick: () -> Unit,
     modifier: Modifier = Modifier,
     reserveActionHeader: Boolean = false,
 ) {
@@ -554,8 +603,312 @@ private fun ReferenceCounter(
             )
         },
         modifier = modifier,
+        headerAction = if (state.mode == PressureMode.RUBY) {
+            {
+                TemperatureHeaderAction(
+                    temperatureK = profile.temperatureK,
+                    onClick = onTemperatureClick,
+                )
+            }
+        } else {
+            null
+        },
         reserveActionHeader = reserveActionHeader,
     )
+}
+
+@Composable
+private fun TemperatureHeaderAction(
+    temperatureK: Int,
+    onClick: () -> Unit,
+) {
+    val atRoomTemperature = temperatureK == RubyTemperature.ROOM_K
+    val accent = if (atRoomTemperature) Color(0xFF00A63D) else {
+        MaterialTheme.colorScheme.primary
+    }
+    val textColor = if (atRoomTemperature) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val description = androidx.compose.ui.res.stringResource(
+        R.string.temperature_description,
+        temperatureK,
+    )
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .width(82.dp)
+            .height(36.dp)
+            .semantics { contentDescription = description },
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = textColor,
+        border = BorderStroke(1.dp, accent),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    R.string.temperature_button,
+                    temperatureK,
+                ),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TemperatureDialog(
+    initialTemperatureK: Int,
+    onDismiss: () -> Unit,
+    onApply: (Int) -> Unit,
+) {
+    var draft by rememberSaveable(initialTemperatureK) {
+        mutableStateOf(initialTemperatureK.toString())
+    }
+    val temperatureK = draft.toIntOrNull()
+    val isValid = temperatureK?.let(RubyTemperature::isValid) == true
+    val focusManager = LocalFocusManager.current
+    val kelvinUnit = stringResourceCompat(R.string.temperature_kelvin_unit)
+
+    fun step(delta: Int) {
+        val current = temperatureK ?: initialTemperatureK
+        draft = (current + delta)
+            .coerceIn(RubyTemperature.MIN_K, RubyTemperature.MAX_K)
+            .toString()
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 420.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 12.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Text(
+                    text = stringResourceCompat(R.string.temperature),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RepeatTemperatureButton(
+                        label = stringResourceCompat(R.string.temperature_minus_symbol),
+                        description = stringResourceCompat(R.string.temperature_decrease),
+                        onStep = { step(-1) },
+                    )
+                    BasicTextField(
+                        value = draft,
+                        onValueChange = { candidate ->
+                            if (candidate.length <= 3 && candidate.all(Char::isDigit)) {
+                                draft = candidate
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .widthIn(min = 124.dp, max = 160.dp)
+                            .height(72.dp)
+                            .border(
+                                BorderStroke(
+                                    1.dp,
+                                    if (draft.isNotEmpty() && !isValid) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.outline
+                                    },
+                                ),
+                                RoundedCornerShape(4.dp),
+                            )
+                            .padding(horizontal = 12.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFeatureSettings = "tnum",
+                            textAlign = TextAlign.Center,
+                            color = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (isValid) {
+                                    focusManager.clearFocus()
+                                    onApply(requireNotNull(temperatureK))
+                                }
+                            },
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = 0f },
+                                ) {
+                                    innerTextField()
+                                }
+                                Text(
+                                    text = buildAnnotatedString {
+                                        append(draft)
+                                        append(' ')
+                                        withStyle(
+                                            SpanStyle(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = MaterialTheme.typography.titleLarge.fontSize,
+                                                fontWeight = FontWeight.Bold,
+                                            ),
+                                        ) {
+                                            append(kelvinUnit)
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFeatureSettings = "tnum",
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                    RepeatTemperatureButton(
+                        label = stringResourceCompat(R.string.temperature_plus_symbol),
+                        description = stringResourceCompat(R.string.temperature_increase),
+                        onStep = { step(1) },
+                    )
+                }
+                if (!isValid) {
+                    Text(
+                        text = stringResourceCompat(R.string.temperature_range_error),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        draft = RubyTemperature.ROOM_K.toString()
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(
+                        text = stringResourceCompat(R.string.room_temperature),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (temperatureK != null) {
+                            androidx.compose.ui.res.stringResource(
+                                R.string.temperature_celsius,
+                                RubyTemperature.toRoundedCelsius(temperatureK),
+                            )
+                        } else {
+                            stringResourceCompat(R.string.temperature_celsius_unavailable)
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResourceCompat(R.string.cancel))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        enabled = isValid,
+                        onClick = { onApply(requireNotNull(temperatureK)) },
+                    ) {
+                        Text(stringResourceCompat(R.string.apply))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RepeatTemperatureButton(
+    label: String,
+    description: String,
+    onStep: () -> Unit,
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val currentOnStep by androidx.compose.runtime.rememberUpdatedState(onStep)
+    Surface(
+        modifier = Modifier
+            .size(64.dp)
+            .semantics {
+                role = Role.Button
+                contentDescription = description
+                onClick {
+                    onStep()
+                    true
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        try {
+                            var repeated = false
+                            kotlinx.coroutines.coroutineScope {
+                                val repeatJob = launch {
+                                    delay(600)
+                                    repeated = true
+                                    currentOnStep()
+                                    while (true) {
+                                        delay(120)
+                                        currentOnStep()
+                                    }
+                                }
+                                val released = tryAwaitRelease()
+                                repeatJob.cancelAndJoin()
+                                if (released && !repeated) currentOnStep()
+                            }
+                        } finally {
+                            isPressed = false
+                        }
+                    },
+                )
+            },
+        shape = RoundedCornerShape(14.dp),
+        color = if (isPressed) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
 }
 
 @Composable

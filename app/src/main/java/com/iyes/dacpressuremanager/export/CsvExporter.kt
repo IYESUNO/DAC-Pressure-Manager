@@ -3,6 +3,7 @@ package com.iyes.dacpressuremanager.export
 import com.iyes.dacpressuremanager.domain.HistoryRecord
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.formatCenti
 import java.nio.charset.StandardCharsets
 import java.text.DateFormat
@@ -33,32 +34,47 @@ class CsvExporter(
         records: List<HistoryRecord>,
     ): CsvDocument {
         val modeLabel = if (profile.mode == PressureMode.DIAMOND) "Diamond" else "Ruby"
-        val headers = listOf(
-            "No.",
-            "Timestamp",
-            "Mode",
-            "Profile",
-            "Reference",
-            "Measured",
-            "Shift",
-            "Input Unit",
-            "Pressure (GPa)",
-        )
+        val includeTemperature = profile.mode == PressureMode.RUBY &&
+            records.any { it.temperatureK != RubyTemperature.ROOM_K }
+        val headers = buildList {
+            addAll(
+                listOf(
+                    "No.",
+                    "Timestamp",
+                    "Mode",
+                    "Profile",
+                    "Reference",
+                    "Measured",
+                    "Shift",
+                    "Input Unit",
+                ),
+            )
+            if (includeTemperature) add("Temperature (K)")
+            add("Pressure (GPa)")
+        }
         val chronologicalRecords = records.sortedWith(
             compareBy<HistoryRecord> { it.createdAtEpochMillis }.thenBy { it.id },
         )
         val rows = chronologicalRecords.mapIndexed { index, record ->
-            listOf(
-                escape(index + 1),
-                escape(recordTimestampFormatter(record.createdAtEpochMillis), protectFormula = true),
-                escape(modeLabel, protectFormula = true),
-                escape(profile.name, protectFormula = true),
-                escape(formatCenti(record.referenceCenti)),
-                escape(formatCenti(record.measuredCenti)),
-                escape(formatCenti(record.measuredCenti - record.referenceCenti)),
-                escape(profile.mode.unit, protectFormula = true),
-                escape(formatCenti(record.pressureCenti)),
-            ).joinToString(",")
+            buildList {
+                addAll(
+                    listOf(
+                        escape(index + 1),
+                        escape(
+                            recordTimestampFormatter(record.createdAtEpochMillis),
+                            protectFormula = true,
+                        ),
+                        escape(modeLabel, protectFormula = true),
+                        escape(profile.name, protectFormula = true),
+                        escape(formatCenti(record.referenceCenti)),
+                        escape(formatCenti(record.measuredCenti)),
+                        escape(formatCenti(record.measuredCenti - record.referenceCenti)),
+                        escape(profile.mode.unit, protectFormula = true),
+                    ),
+                )
+                if (includeTemperature) add(escape(record.temperatureK))
+                add(escape(formatCenti(record.pressureCenti)))
+            }.joinToString(",")
         }
         val csv = buildString {
             append(headers.joinToString(",") { escape(it) })
@@ -106,4 +122,3 @@ class CsvExporter(
         val WHITESPACE = Regex("""\s+""")
     }
 }
-

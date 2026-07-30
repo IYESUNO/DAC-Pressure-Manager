@@ -50,6 +50,9 @@ interface DacDao {
         measuredCenti: Int,
     )
 
+    @Query("UPDATE profiles SET temperatureK = :temperatureK WHERE id = :profileId")
+    suspend fun updateProfileTemperature(profileId: Long, temperatureK: Int)
+
     @Query("UPDATE profiles SET sortOrder = :sortOrder WHERE id = :profileId")
     suspend fun updateProfileSortOrder(profileId: Long, sortOrder: Int)
 
@@ -87,4 +90,3 @@ interface DacDao {
     )
     suspend fun trimHistory(profileId: Long, keepCount: Int)
 }
-
