@@ -5,6 +5,9 @@ import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureComputation
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.ThemePalette
+import com.iyes.dacpressuremanager.domain.ThemeAppearance
+import com.iyes.dacpressuremanager.domain.ThemePreferences
 
 enum class UiMessage {
     KEEP_ONE_PROFILE,
@@ -13,6 +16,14 @@ enum class UiMessage {
     EXPORT_SUCCESS,
     EXPORT_FAILED,
     SHARE_FAILED,
+}
+
+sealed interface UpdateUiState {
+    data object Idle : UpdateUiState
+    data object Checking : UpdateUiState
+    data object Current : UpdateUiState
+    data class Available(val version: String, val releaseUrl: String) : UpdateUiState
+    data object Failed : UpdateUiState
 }
 
 sealed interface MainUiState {
@@ -25,6 +36,8 @@ sealed interface MainUiState {
         val recentRecords: List<HistoryRecord>,
         val pressure: PressureComputation,
         val message: UiMessage?,
+        val themePreferences: ThemePreferences = ThemePreferences(),
+        val updateState: UpdateUiState = UpdateUiState.Idle,
     ) : MainUiState
 }
 
@@ -43,6 +56,13 @@ sealed interface MainAction {
     data class SetTemperature(val profileId: Long, val temperatureK: Int) : MainAction
     data class Reset(val profileId: Long) : MainAction
     data class SaveHistory(val profileId: Long) : MainAction
+    data class SelectThemePalette(
+        val mode: PressureMode,
+        val palette: ThemePalette,
+    ) : MainAction
+    data class SelectThemeAppearance(val appearance: ThemeAppearance) : MainAction
+    data object ResetThemePalettes : MainAction
+    data object CheckForUpdates : MainAction
     data object Retry : MainAction
     data object MessageShown : MainAction
 }

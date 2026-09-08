@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Used only after the user explicitly taps Version in Settings. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".DacApplication"
         android:allowBackup="false"

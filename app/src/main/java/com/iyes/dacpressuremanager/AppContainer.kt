@@ -6,6 +6,8 @@ import androidx.room.RoomDatabase
 import com.iyes.dacpressuremanager.data.DacRepository
 import com.iyes.dacpressuremanager.data.RoomDacRepository
 import com.iyes.dacpressuremanager.data.local.DacDatabase
+import com.iyes.dacpressuremanager.update.AppUpdateChecker
+import com.iyes.dacpressuremanager.update.GitHubReleaseUpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,5 +26,11 @@ class AppContainer(context: Context) {
     val repository: DacRepository = RoomDacRepository(
         database = database,
         applicationScope = applicationScope,
+        preferences = context.applicationContext.getSharedPreferences(
+            "dac-ui-preferences",
+            Context.MODE_PRIVATE,
+        ),
     )
+
+    val updateChecker: AppUpdateChecker = GitHubReleaseUpdateChecker()
 }

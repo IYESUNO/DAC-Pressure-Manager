@@ -1,5 +1,6 @@
 package com.iyes.dacpressuremanager.data
 
+import android.content.SharedPreferences
 import androidx.room.withTransaction
 import com.iyes.dacpressuremanager.data.local.AppStateEntity
 import com.iyes.dacpressuremanager.data.local.DacDao
@@ -16,6 +17,9 @@ import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.RubyTemperature
+import com.iyes.dacpressuremanager.domain.ThemePalette
+import com.iyes.dacpressuremanager.domain.ThemeAppearance
+import com.iyes.dacpressuremanager.domain.ThemePreferences
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,12 +35,24 @@ import kotlinx.coroutines.sync.withLock
 class RoomDacRepository(
     private val database: DacDatabase,
     private val applicationScope: CoroutineScope,
+    private val preferences: SharedPreferences? = null,
     private val now: () -> Long = System::currentTimeMillis,
 ) : DacRepository {
     private val dao: DacDao = database.dacDao()
     private val initialization = MutableStateFlow<Initialization>(Initialization.Loading)
     private val initializationJob = AtomicReference<Job?>()
     private val writeMutex = Mutex()
+    private val mutableThemePreferences = MutableStateFlow(
+        ThemePreferences(
+            diamond = ThemePalette.fromStorage(preferences?.getString(KEY_DIAMOND_THEME, null)),
+            ruby = ThemePalette.fromStorage(preferences?.getString(KEY_RUBY_THEME, null)),
+            appearance = ThemeAppearance.fromStorage(
+                preferences?.getString(KEY_THEME_APPEARANCE, null),
+            ),
+        ),
+    )
+
+    override val themePreferences: StateFlow<ThemePreferences> = mutableThemePreferences
 
     override val dataState: StateFlow<DacDataState> = combine(
         initialization,
@@ -281,6 +297,39 @@ class RoomDacRepository(
         dao.clearHistory(profileId)
     }
 
+    override suspend fun setThemePalette(mode: PressureMode, palette: ThemePalette) {
+        val updated = if (mode == PressureMode.DIAMOND) {
+            mutableThemePreferences.value.copy(diamond = palette)
+        } else {
+            mutableThemePreferences.value.copy(ruby = palette)
+        }
+        mutableThemePreferences.value = updated
+        preferences?.edit()
+            ?.putString(
+                if (mode == PressureMode.DIAMOND) KEY_DIAMOND_THEME else KEY_RUBY_THEME,
+                palette.name,
+            )
+            ?.apply()
+    }
+
+    override suspend fun setThemeAppearance(appearance: ThemeAppearance) {
+        mutableThemePreferences.value = mutableThemePreferences.value.copy(appearance = appearance)
+        preferences?.edit()
+            ?.putString(KEY_THEME_APPEARANCE, appearance.name)
+            ?.apply()
+    }
+
+    override suspend fun resetThemePalettes() {
+        mutableThemePreferences.value = mutableThemePreferences.value.copy(
+            diamond = ThemePalette.DEFAULT,
+            ruby = ThemePalette.DEFAULT,
+        )
+        preferences?.edit()
+            ?.remove(KEY_DIAMOND_THEME)
+            ?.remove(KEY_RUBY_THEME)
+            ?.apply()
+    }
+
     private suspend fun ensureInitialized() {
         writeMutex.withLock {
             database.withTransaction {
@@ -343,6 +392,9 @@ class RoomDacRepository(
 
     private companion object {
         const val HISTORY_LIMIT = 50
+        const val KEY_DIAMOND_THEME = "diamond_theme"
+        const val KEY_RUBY_THEME = "ruby_theme"
+        const val KEY_THEME_APPEARANCE = "theme_appearance"
     }
 }
 

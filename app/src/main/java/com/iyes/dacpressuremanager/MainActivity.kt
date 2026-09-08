@@ -1,15 +1,19 @@
 package com.iyes.dacpressuremanager
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.ui.DacApp
@@ -28,8 +32,11 @@ class MainActivity : ComponentActivity() {
     private val repository by lazy {
         (application as DacApplication).container.repository
     }
+    private val updateChecker by lazy {
+        (application as DacApplication).container.updateChecker
+    }
     private val mainViewModel by viewModels<MainViewModel> {
-        MainViewModel.Factory(repository)
+        MainViewModel.Factory(repository, updateChecker, BuildConfig.VERSION_NAME)
     }
     private val historyViewModel by viewModels<HistoryViewModel> {
         HistoryViewModel.Factory(repository)
@@ -48,14 +55,34 @@ class MainActivity : ComponentActivity() {
                     (mainState as MainUiState.Content).mode
                 else -> PressureMode.DIAMOND
             }
-            DacTheme(mode = mode) {
+            val palette = (mainState as? MainUiState.Content)
+                ?.themePreferences
+                ?.paletteFor(mode)
+            val appearance = (mainState as? MainUiState.Content)
+                ?.themePreferences
+                ?.appearance
+            val systemDarkTheme = isSystemInDarkTheme()
+            val darkTheme = appearance?.useDarkTheme(systemDarkTheme) ?: systemDarkTheme
+            DacTheme(mode = mode, palette = palette, darkTheme = darkTheme) {
                 DacApp(
                     mainState = mainState,
                     historyState = historyState,
                     onMainAction = mainViewModel::dispatch,
                     onHistoryAction = historyViewModel::dispatch,
+                    versionName = BuildConfig.VERSION_NAME.removeSuffix("-debug"),
+                    onOpenRelease = ::openRelease,
                 )
             }
+        }
+    }
+
+    private fun openRelease(url: String) {
+        runCatching {
+            val uri = Uri.parse(url)
+            require(uri.scheme == "https" && uri.host in ALLOWED_EXTERNAL_HOSTS)
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        }.onFailure {
+            Toast.makeText(this, R.string.unable_to_open_link, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -89,6 +116,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val DEFAULT_SYSTEM_SCREEN_TIMEOUT_MS = 2 * 60 * 1_000L
+        val ALLOWED_EXTERNAL_HOSTS = setOf("github.com", "apps.9527857.xyz")
     }
 }
 

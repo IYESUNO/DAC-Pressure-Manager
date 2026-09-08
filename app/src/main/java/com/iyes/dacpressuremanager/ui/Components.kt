@@ -7,6 +7,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,6 +80,7 @@ import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.formatCenti
+import com.iyes.dacpressuremanager.ui.theme.LocalDacAccentColors
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -359,6 +363,12 @@ fun ProfileStrip(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val darkTheme = isSystemInDarkTheme()
+    val accent = LocalDacAccentColors.current
+    val inactiveContainer = if (darkTheme) Color(0xFF3A4045) else Color(0xFFE4E7E9)
+    val inactiveLabel = if (darkTheme) Color(0xFFD0D5D9) else Color(0xFF50575D)
+    val inactiveBorder = if (darkTheme) Color(0xFF4B5258) else Color(0xFFD4D9DD)
+    val chipShape = RoundedCornerShape(8.dp)
     val listState = remember { LazyListState() }
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -375,7 +385,6 @@ fun ProfileStrip(
     var dragPointerX by remember { mutableFloatStateOf(0f) }
     var initialDraggingItemOffset by remember { mutableFloatStateOf(0f) }
     var autoScrollPerFrame by remember { mutableFloatStateOf(0f) }
-
     val displayedProfiles = if (draggingId != null || settlingId != null) {
         previewProfiles
     } else {
@@ -426,6 +435,7 @@ fun ProfileStrip(
             items = displayedProfiles,
             key = { _, profile -> profile.id },
         ) { index, profile ->
+            val isSelected = profile.id == activeProfileId
             val isDragging = draggingId == profile.id
             val isSettling = settlingId == profile.id
             val isLifted = isDragging || isSettling
@@ -488,7 +498,7 @@ fun ProfileStrip(
                 }
             }
             FilterChip(
-                selected = profile.id == activeProfileId,
+                selected = isSelected,
                 onClick = {
                     if (draggingId == null && settlingId == null) {
                         onSelect(profile.id)
@@ -498,20 +508,24 @@ fun ProfileStrip(
                     containerColor = if (isLifted) {
                         profile.mode.dragPreviewColor
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant
+                        inactiveContainer
                     },
                     labelColor = if (isLifted) {
                         Color(0xFF2D2D2D)
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        inactiveLabel
                     },
                     selectedContainerColor = when {
                         isLifted -> profile.mode.dragPreviewColor
-                        profile.mode == PressureMode.DIAMOND -> Color(0xFF2C3E50)
-                        else -> Color(0xFFC0392B)
+                        else -> accent.selection
                     },
-                    selectedLabelColor = if (isLifted) Color(0xFF2D2D2D) else Color.White,
+                    selectedLabelColor = if (isLifted) {
+                        Color(0xFF2D2D2D)
+                    } else {
+                        accent.onSelection
+                    },
                 ),
+                shape = chipShape,
                 label = {
                     Text(
                         text = profile.name,
@@ -532,12 +546,17 @@ fun ProfileStrip(
                             )
                         },
                     )
-                    .widthIn(min = 60.dp, max = 120.dp)
-                    .heightIn(min = 40.dp, max = 48.dp)
+                    .widthIn(min = 70.dp, max = 148.dp)
+                    .height(44.dp)
+                    .border(
+                        width = 1.dp,
+                        color = if (isSelected || isLifted) Color.Transparent else inactiveBorder,
+                        shape = chipShape,
+                    )
                     .zIndex(if (isLifted) 2f else 0f)
                     .shadow(
                         elevation = if (isLifted) 8.dp else 0.dp,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = chipShape,
                         clip = false,
                     )
                     .graphicsLayer {
@@ -665,6 +684,7 @@ fun ProfileStrip(
         }
         item(key = "add-profile") {
             val addProfileDescription = stringResource(R.string.add_profile_description)
+            val accent = LocalDacAccentColors.current
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -684,13 +704,13 @@ fun ProfileStrip(
                 Surface(
                     modifier = Modifier.size(38.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    color = accent.action,
+                    contentColor = accent.onAction,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         OperatorGlyphIcon(
                             glyph = OperatorGlyph.Plus,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = accent.onAction,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -749,13 +769,18 @@ fun MiniHistoryPanel(
                         )
                     }
                 } else {
-                    val visibleCount = (maxHeight.value / 26f)
+                    // Match the web app: capacity is based on the 24dp minimum row
+                    // height, then visible rows share the remaining space up to 26dp.
+                    val visibleCount = (maxHeight.value / 24f)
                         .toInt()
                         .coerceAtLeast(1)
                     val latestId = records.first().id
                     val visibleRecords = records
                         .take(visibleCount)
                         .asReversed()
+                    val rowHeight = (maxHeight.value / visibleRecords.size)
+                        .dp
+                        .coerceIn(24.dp, 26.dp)
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Bottom,
@@ -764,6 +789,7 @@ fun MiniHistoryPanel(
                             MiniHistoryItem(
                                 record = record,
                                 isLatest = record.id == latestId,
+                                height = rowHeight,
                             )
                         }
                     }
@@ -777,12 +803,15 @@ fun MiniHistoryPanel(
 private fun MiniHistoryItem(
     record: HistoryRecord,
     isLatest: Boolean,
+    height: androidx.compose.ui.unit.Dp,
 ) {
     val latestDescription = stringResource(R.string.latest_record)
+    val accent = LocalDacAccentColors.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(height)
+            .background(if (isLatest) accent.statusBackground else Color.Transparent)
             .semantics {
                 if (isLatest) contentDescription = latestDescription
             },
@@ -796,16 +825,18 @@ private fun MiniHistoryItem(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .size(5.dp)
+                    .offset(x = 2.dp)
+                    .width(3.dp)
+                    .height(14.dp)
                     .background(
-                        MaterialTheme.colorScheme.primary,
-                        CircleShape,
+                        accent.action,
+                        RoundedCornerShape(999.dp),
                     ),
             )
         }
         Text(
             text = formatCenti(record.pressureCenti),
-            color = MaterialTheme.colorScheme.primary,
+            color = accent.text,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,

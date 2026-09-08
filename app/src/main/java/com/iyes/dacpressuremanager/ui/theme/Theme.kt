@@ -6,12 +6,49 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import com.iyes.dacpressuremanager.domain.PressureMode
+import com.iyes.dacpressuremanager.domain.ThemePalette
+
+internal data class DacAccentColors(
+    val action: Color,
+    val actionStrong: Color,
+    val resultFrom: Color,
+    val resultTo: Color,
+    val onAction: Color,
+    val text: Color,
+    val selection: Color,
+    val onSelection: Color,
+    val statusBackground: Color,
+    val buttonBackground: Color,
+    val buttonBackgroundPressed: Color,
+    val buttonBorder: Color,
+)
+
+internal val LocalDacAccentColors = staticCompositionLocalOf {
+    DacAccentColors(
+        action = Color(0xFF2980B9),
+        actionStrong = Color(0xFF3498DB),
+        resultFrom = Color(0xFF236F9D),
+        resultTo = Color(0xFF2676AA),
+        onAction = Color.White,
+        text = Color(0xFF2980B9),
+        selection = Color(0xFF2C3E50),
+        onSelection = Color.White,
+        statusBackground = Color(0xFFE6F4FE),
+        buttonBackground = Color(0xFFE6F4FE),
+        buttonBackgroundPressed = Color(0xFFC2E5FF),
+        buttonBorder = Color(0xFF5EB1EF),
+    )
+}
 
 private val DiamondLightColors = lightColorScheme(
-    primary = Color(0xFF2980B9),
+    primary = Color(0xFF236F9D),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFD4E9FF),
     onPrimaryContainer = Color(0xFF001D35),
@@ -47,7 +84,7 @@ private val DiamondDarkColors = darkColorScheme(
 )
 
 private val RubyLightColors = lightColorScheme(
-    primary = Color(0xFFE74C3C),
+    primary = Color(0xFFC0392B),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFFFDAD9),
     onPrimaryContainer = Color(0xFF410006),
@@ -85,27 +122,185 @@ private val RubyDarkColors = darkColorScheme(
 @Composable
 fun DacTheme(
     mode: PressureMode,
+    palette: ThemePalette? = null,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colors = dacColorScheme(mode = mode, darkTheme = darkTheme)
-    MaterialTheme(
-        colorScheme = colors,
-        typography = DacTypography,
-    ) {
-        ProvideTextStyle(
-            value = DacTypography.bodyLarge,
-            content = content,
-        )
+    val selectedPalette = palette ?: ThemePalette.DEFAULT
+    val accentColors = dacAccentColors(mode, selectedPalette, darkTheme)
+    val colors = dacColorScheme(
+        mode = mode,
+        darkTheme = darkTheme,
+        palette = selectedPalette,
+    )
+    CompositionLocalProvider(LocalDacAccentColors provides accentColors) {
+        MaterialTheme(
+            colorScheme = colors,
+            typography = DacTypography,
+        ) {
+            ProvideTextStyle(
+                value = DacTypography.bodyLarge,
+                content = content,
+            )
+        }
     }
 }
 
 internal fun dacColorScheme(
     mode: PressureMode,
     darkTheme: Boolean,
-): ColorScheme = when {
+    palette: ThemePalette = ThemePalette.DEFAULT,
+): ColorScheme {
+    val base = when {
     mode == PressureMode.DIAMOND && !darkTheme -> DiamondLightColors
     mode == PressureMode.DIAMOND -> DiamondDarkColors
     !darkTheme -> RubyLightColors
     else -> RubyDarkColors
+    }
+    if (palette == ThemePalette.DEFAULT) return base
+
+    val scaleColors = palette.scale().colors(darkTheme)
+    val accent = dacAccentColors(mode, palette, darkTheme)
+    return base.copy(
+        primary = accent.action,
+        onPrimary = accent.onAction,
+        primaryContainer = scaleColors[2],
+        onPrimaryContainer = scaleColors[11],
+        secondary = accent.actionStrong,
+        onSecondary = accent.onAction,
+        secondaryContainer = scaleColors[4],
+        onSecondaryContainer = scaleColors[11],
+        tertiary = accent.text,
+        onTertiary = bestBlackOrWhite(accent.text),
+        tertiaryContainer = scaleColors[3],
+        onTertiaryContainer = scaleColors[11],
+    )
+}
+
+internal fun dacAccentColors(
+    mode: PressureMode,
+    palette: ThemePalette,
+    darkTheme: Boolean,
+): DacAccentColors {
+    if (palette == ThemePalette.DEFAULT) {
+        return when {
+            mode == PressureMode.DIAMOND && !darkTheme -> DacAccentColors(
+                action = Color(0xFF2676AA),
+                actionStrong = Color(0xFF236F9D),
+                resultFrom = Color(0xFF236F9D),
+                resultTo = Color(0xFF2676AA),
+                onAction = Color.White,
+                text = Color(0xFF236F9D),
+                selection = Color(0xFF2C3E50),
+                onSelection = Color.White,
+                statusBackground = Color(0xFFE6F4FE),
+                buttonBackground = Color(0xFFE6F4FE),
+                buttonBackgroundPressed = Color(0xFFC2E5FF),
+                buttonBorder = Color(0xFF5EB1EF),
+            )
+            mode == PressureMode.DIAMOND -> DacAccentColors(
+                action = Color(0xFF124F73),
+                actionStrong = Color(0xFF0B3E5D),
+                resultFrom = Color(0xFF0B3E5D),
+                resultTo = Color(0xFF124F73),
+                onAction = Color(0xFFD5ECFF),
+                text = Color(0xFF78C5FF),
+                selection = Color(0xFF2C3E50),
+                onSelection = Color.White,
+                statusBackground = Color(0xFF0D2847),
+                buttonBackground = Color(0xFF0D2847),
+                buttonBackgroundPressed = Color(0xFF004074),
+                buttonBorder = Color(0xFF2870BD),
+            )
+            !darkTheme -> DacAccentColors(
+                action = Color(0xFFC63E32),
+                actionStrong = Color(0xFFA83229),
+                resultFrom = Color(0xFFA83229),
+                resultTo = Color(0xFFC63E32),
+                onAction = Color.White,
+                text = Color(0xFFC0392B),
+                selection = Color(0xFFB9382E),
+                onSelection = Color.White,
+                statusBackground = Color(0xFFFFEBEC),
+                buttonBackground = Color(0xFFFFEBEC),
+                buttonBackgroundPressed = Color(0xFFFFCDCE),
+                buttonBorder = Color(0xFFEB8E90),
+            )
+            else -> DacAccentColors(
+                action = Color(0xFF752420),
+                actionStrong = Color(0xFF5F1917),
+                resultFrom = Color(0xFF5F1917),
+                resultTo = Color(0xFF752420),
+                onAction = Color(0xFFFFDAD7),
+                text = Color(0xFFFFAAA3),
+                selection = Color(0xFFB9382E),
+                onSelection = Color.White,
+                statusBackground = Color(0xFF3B1219),
+                buttonBackground = Color(0xFF3B1219),
+                buttonBackgroundPressed = Color(0xFF611623),
+                buttonBorder = Color(0xFFB54548),
+            )
+        }
+    }
+
+    val scale = palette.scale()
+    val lightAction = scale.light[8]
+    val usesBrightSolid = contrastRatio(Color.Black, lightAction) >= 8f
+    val colors = scale.colors(darkTheme)
+    val action = when {
+        !darkTheme && usesBrightSolid -> colors[8]
+        !darkTheme -> colors[10]
+        usesBrightSolid -> colors[3]
+        else -> colors[7]
+    }
+    val actionStrong = when {
+        !darkTheme && usesBrightSolid -> colors[9]
+        !darkTheme -> lerp(action, Color.Black, 0.14f)
+        usesBrightSolid -> colors[2]
+        else -> lerp(action, Color.Black, 0.14f)
+    }
+    val resultFrom = if (darkTheme && usesBrightSolid) actionStrong else action
+    val resultTo = when {
+        darkTheme && usesBrightSolid -> action
+        usesBrightSolid -> actionStrong
+        else -> lerp(action, Color.Black, 0.18f)
+    }
+    val onAction = if (usesBrightSolid) {
+        if (darkTheme) colors[10] else colors[11]
+    } else {
+        bestBlackOrWhite(listOf(action, actionStrong, resultFrom, resultTo))
+    }
+    return DacAccentColors(
+        action = action,
+        actionStrong = actionStrong,
+        resultFrom = resultFrom,
+        resultTo = resultTo,
+        onAction = onAction,
+        text = colors[10],
+        selection = action,
+        onSelection = onAction,
+        statusBackground = colors[2],
+        buttonBackground = colors[2],
+        buttonBackgroundPressed = colors[4],
+        buttonBorder = colors[7],
+    )
+}
+
+private fun bestBlackOrWhite(background: Color): Color =
+    bestBlackOrWhite(listOf(background))
+
+private fun bestBlackOrWhite(backgrounds: List<Color>): Color =
+    if (
+        backgrounds.minOf { contrastRatio(Color.Black, it) } >=
+        backgrounds.minOf { contrastRatio(Color.White, it) }
+    ) {
+        Color.Black
+    } else {
+        Color.White
+    }
+
+private fun contrastRatio(first: Color, second: Color): Float {
+    val lighter = maxOf(first.luminance(), second.luminance())
+    val darker = minOf(first.luminance(), second.luminance())
+    return (lighter + 0.05f) / (darker + 0.05f)
 }

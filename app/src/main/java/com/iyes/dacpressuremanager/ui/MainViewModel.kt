@@ -12,6 +12,8 @@ import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.RubyTemperature
+import com.iyes.dacpressuremanager.update.AppUpdateChecker
+import com.iyes.dacpressuremanager.update.UpdateCheckResult
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,16 +26,21 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(
     private val repository: DacRepository,
+    private val updateChecker: AppUpdateChecker = AppUpdateChecker { UpdateCheckResult.Failed },
+    private val currentVersion: String = "0.0.0",
 ) : ViewModel() {
     private val message = MutableStateFlow<UiMessage?>(null)
     private val optimisticState = MutableStateFlow(MainOptimisticState())
+    private val updateState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     private val commandQueue = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
     val uiState: StateFlow<MainUiState> = combine(
         repository.dataState,
         message,
         optimisticState,
-    ) { dataState, currentMessage, optimistic ->
+        repository.themePreferences,
+        updateState,
+    ) { dataState, currentMessage, optimistic, themePreferences, currentUpdateState ->
         when (dataState) {
             DacDataState.Loading -> MainUiState.Loading
             is DacDataState.Error -> MainUiState.Error()
@@ -52,6 +59,8 @@ class MainViewModel(
                         temperatureK = activeProfile.temperatureK,
                     ),
                     message = currentMessage,
+                    themePreferences = themePreferences,
+                    updateState = currentUpdateState,
                 )
             }
         }
@@ -259,8 +268,33 @@ class MainViewModel(
                     message.value = UiMessage.CANNOT_SAVE_OUT_OF_RANGE
                 }
             }
+            is MainAction.SelectThemePalette -> enqueueCommand {
+                repository.setThemePalette(action.mode, action.palette)
+            }
+            is MainAction.SelectThemeAppearance -> enqueueCommand {
+                repository.setThemeAppearance(action.appearance)
+            }
+            MainAction.ResetThemePalettes -> enqueueCommand {
+                repository.resetThemePalettes()
+            }
+            MainAction.CheckForUpdates -> checkForUpdates()
             MainAction.Retry -> repository.retryInitialization()
             MainAction.MessageShown -> message.value = null
+        }
+    }
+
+    private fun checkForUpdates() {
+        if (updateState.value == UpdateUiState.Checking) return
+        updateState.value = UpdateUiState.Checking
+        viewModelScope.launch {
+            updateState.value = when (val result = updateChecker.check(currentVersion)) {
+                is UpdateCheckResult.Available -> UpdateUiState.Available(
+                    version = result.version,
+                    releaseUrl = result.releaseUrl,
+                )
+                UpdateCheckResult.Current -> UpdateUiState.Current
+                UpdateCheckResult.Failed -> UpdateUiState.Failed
+            }
         }
     }
 
@@ -397,10 +431,12 @@ class MainViewModel(
 
     class Factory(
         private val repository: DacRepository,
+        private val updateChecker: AppUpdateChecker,
+        private val currentVersion: String,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MainViewModel(repository) as T
+            MainViewModel(repository, updateChecker, currentVersion) as T
     }
 }
 
