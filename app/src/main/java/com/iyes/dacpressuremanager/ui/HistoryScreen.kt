@@ -3,8 +3,10 @@ package com.iyes.dacpressuremanager.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,17 +16,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
@@ -44,6 +51,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,17 +106,26 @@ fun HistoryDialog(
             usePlatformDefaultWidth = false,
         ),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 28.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Surface(
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val compactPhone = maxWidth <= 380.dp
+            val dialogInset = if (compactPhone) 14.dp else 22.dp
+            val heightFraction = if (compactPhone) 0.82f else 0.76f
+            val dialogHeight = minOf(
+                maxHeight * heightFraction,
+                650.dp,
+                maxHeight - (dialogInset * 2),
+            )
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.72f)
-                    .widthIn(max = 400.dp),
+                    .fillMaxSize()
+                    .padding(dialogInset),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(dialogHeight)
+                        .widthIn(max = 620.dp),
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 12.dp,
@@ -158,6 +178,13 @@ fun HistoryDialog(
                                 MaterialTheme.colorScheme.error,
                             ),
                         ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(Modifier.width(6.dp))
                             Text(
                                 text = stringResource(R.string.clear_all),
                                 color = MaterialTheme.colorScheme.error,
@@ -174,12 +201,13 @@ fun HistoryDialog(
                     }
                 }
             }
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(8.dp),
-            )
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(8.dp),
+                )
+            }
         }
     }
 
@@ -436,32 +464,82 @@ private fun HistoryRecordRow(
                 )
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Button(
+                CompactHistoryAction(
+                    label = stringResource(R.string.apply),
                     onClick = onApply,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 9.dp,
-                        vertical = 4.dp,
-                    ),
-                ) {
-                    Text(stringResource(R.string.apply))
-                }
-                Button(
+                )
+                CompactHistoryDelete(
                     onClick = onDelete,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 8.dp,
-                        vertical = 4.dp,
-                    ),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
+                    description = stringResource(R.string.delete_record_from, timestamp),
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun CompactHistoryAction(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(58.dp)
+            .height(48.dp)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp),
+            shape = RoundedCornerShape(7.dp),
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactHistoryDelete(
+    description: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .semantics {
+                role = Role.Button
+                contentDescription = description
+            }
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(7.dp),
+            color = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
     }
 }
 

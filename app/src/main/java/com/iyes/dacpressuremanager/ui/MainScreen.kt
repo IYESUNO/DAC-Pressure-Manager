@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,6 +44,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -97,6 +100,7 @@ import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.formatCenti
 import com.iyes.dacpressuremanager.ui.theme.DacResultFontFamily
+import com.iyes.dacpressuremanager.ui.theme.LocalDacAccentColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -106,6 +110,7 @@ fun MainScreen(
     state: MainUiState,
     onAction: (MainAction) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val content = state as? MainUiState.Content
@@ -133,6 +138,7 @@ fun MainScreen(
                 padding = innerPadding,
                 onAction = onAction,
                 onOpenHistory = onOpenHistory,
+                onOpenSettings = onOpenSettings,
             )
         }
     }
@@ -144,6 +150,7 @@ private fun MainDashboard(
     padding: PaddingValues,
     onAction: (MainAction) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     var profileDialog by rememberSaveable { mutableStateOf<ProfileDialogKind?>(null) }
     var deleteProfileId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -266,11 +273,36 @@ private fun MainDashboard(
                 .fillMaxSize()
                 .padding(layout.outerPadding),
         ) {
-            ModeTabs(
-                selectedMode = state.mode,
-                onModeSelected = { onAction(MainAction.SelectMode(it)) },
-                modifier = Modifier.height(layout.modeHeight),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(layout.modeHeight),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ModeTabs(
+                    selectedMode = state.mode,
+                    onModeSelected = { onAction(MainAction.SelectMode(it)) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                )
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    modifier = Modifier.size(layout.modeHeight.coerceAtLeast(48.dp)),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = stringResourceCompat(R.string.settings_description),
+                        )
+                    }
+                }
+            }
             key(state.mode) {
                 Spacer(Modifier.height(layout.sectionGap))
                 ProfileStrip(
@@ -336,6 +368,7 @@ private fun ModeTabs(
     onModeSelected: (PressureMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val accent = LocalDacAccentColors.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
@@ -350,11 +383,7 @@ private fun ModeTabs(
         ) {
             PressureMode.entries.forEach { mode ->
                 val isSelected = mode == selectedMode
-                val activeColors = if (mode == PressureMode.DIAMOND) {
-                    listOf(Color(0xFF2980B9), Color(0xFF3498DB))
-                } else {
-                    listOf(Color(0xFFC0392B), Color(0xFFE74C3C))
-                }
+                val activeColors = listOf(accent.action, accent.actionStrong)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -383,7 +412,7 @@ private fun ModeTabs(
                             stringResourceCompat(R.string.mode_ruby)
                         },
                         color = if (isSelected) {
-                            Color.White
+                            accent.onAction
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -404,6 +433,7 @@ private fun ProfileToolbar(
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val accent = LocalDacAccentColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -413,7 +443,7 @@ private fun ProfileToolbar(
     ) {
         Text(
             text = profile.name,
-            color = MaterialTheme.colorScheme.primary,
+            color = accent.text,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 2,
@@ -1100,16 +1130,10 @@ private fun ResultCard(
     val showTemperature = mode == PressureMode.RUBY &&
         temperatureK != RubyTemperature.ROOM_K
     val resultHeight = layout.resultHeight
-    val resultColors = if (mode == PressureMode.DIAMOND) {
-        listOf(Color(0xFF2980B9), Color(0xFF3498DB))
-    } else {
-        listOf(Color(0xFFC0392B), Color(0xFFE74C3C))
-    }
-    val actionAccent = if (mode == PressureMode.DIAMOND) {
-        Color(0xFF236F9D)
-    } else {
-        Color(0xFF9F3027)
-    }
+    val palette = LocalDacAccentColors.current
+    val resultColors = listOf(palette.resultFrom, palette.resultTo)
+    val actionAccent = palette.text
+    val resultContentColor = palette.onAction
 
     Row(
         modifier = Modifier
@@ -1134,7 +1158,7 @@ private fun ResultCard(
         ) {
                 Text(
                     text = pressureText,
-                    color = Color.White,
+                    color = resultContentColor,
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontSize = when {
                             pressure !is PressureResult.Valid ->
@@ -1168,9 +1192,13 @@ private fun ResultCard(
                     )
                 },
                 color = if (shiftCenti < 0) {
-                    Color(0xFFFFCCCB)
+                    if (resultContentColor == Color.White) {
+                        Color(0xFFFFCCCB)
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
                 } else {
-                    Color.White
+                    resultContentColor
                 },
                 fontSize = when {
                     veryDense -> 9.sp
@@ -1184,7 +1212,7 @@ private fun ResultCard(
             if (calibrationText != null) {
                 Text(
                     text = calibrationText,
-                    color = Color(0xFFFFF1B8),
+                    color = resultContentColor.copy(alpha = 0.86f),
                     fontSize = if (veryDense) 8.sp else 10.sp,
                     lineHeight = if (veryDense) 9.sp else 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -1266,7 +1294,7 @@ private fun ResultActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val darkTheme = isSystemInDarkTheme()
+    val palette = LocalDacAccentColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -1283,24 +1311,19 @@ private fun ResultActionButton(
     )
     val containerColor by animateColorAsState(
         targetValue = when {
-            !enabled && primary && darkTheme ->
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
-            !enabled && primary -> Color.White.copy(alpha = 0.22f)
-            primary && darkTheme && isPressed ->
-                MaterialTheme.colorScheme.surfaceVariant
-            primary && darkTheme -> MaterialTheme.colorScheme.surface
-            primary && isPressed -> Color.White.copy(alpha = 0.88f)
-            primary -> Color.White
+            !enabled && primary -> palette.buttonBackground.copy(alpha = 0.55f)
+            primary && isPressed -> palette.buttonBackgroundPressed
+            primary -> palette.buttonBackground
             isPressed -> Color.White.copy(alpha = 0.12f)
             else -> Color.Transparent
         },
         label = "result-action-color",
     )
     val contentColor = when {
-        !enabled -> Color.White.copy(alpha = 0.58f)
-        primary && darkTheme -> MaterialTheme.colorScheme.onSurface
+        !enabled && primary -> accent.copy(alpha = 0.55f)
+        !enabled -> palette.onAction.copy(alpha = 0.58f)
         primary -> accent
-        else -> Color.White
+        else -> palette.onAction
     }
 
     Box(
@@ -1328,15 +1351,10 @@ private fun ResultActionButton(
             shape = RoundedCornerShape(8.dp),
             color = containerColor,
             contentColor = contentColor,
-            border = if (primary && darkTheme) {
-                BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.72f),
-                )
-            } else if (primary) {
-                null
+            border = if (primary) {
+                BorderStroke(1.dp, palette.buttonBorder.copy(alpha = 0.72f))
             } else {
-                BorderStroke(1.dp, Color.White.copy(alpha = 0.55f))
+                BorderStroke(1.dp, palette.onAction.copy(alpha = 0.65f))
             },
         ) {
             Box(contentAlignment = Alignment.Center) {

@@ -4,10 +4,16 @@ import com.iyes.dacpressuremanager.domain.CommandResult
 import com.iyes.dacpressuremanager.domain.DacDataState
 import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureMode
+import com.iyes.dacpressuremanager.domain.ThemePalette
+import com.iyes.dacpressuremanager.domain.ThemeAppearance
+import com.iyes.dacpressuremanager.domain.ThemePreferences
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 interface DacRepository {
     val dataState: StateFlow<DacDataState>
+    val themePreferences: StateFlow<ThemePreferences>
+        get() = DefaultThemePreferences
 
     fun retryInitialization()
 
@@ -24,4 +30,12 @@ interface DacRepository {
     suspend fun restoreHistory(recordId: Long)
     suspend fun deleteHistory(recordId: Long)
     suspend fun clearHistory(profileId: Long)
+
+    suspend fun setThemePalette(mode: PressureMode, palette: ThemePalette) = Unit
+    suspend fun setThemeAppearance(appearance: ThemeAppearance) = Unit
+    suspend fun resetThemePalettes() = Unit
+
+    private companion object {
+        val DefaultThemePreferences = MutableStateFlow(ThemePreferences())
+    }
 }

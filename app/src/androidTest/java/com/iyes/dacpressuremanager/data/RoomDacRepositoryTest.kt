@@ -1,6 +1,7 @@
 package com.iyes.dacpressuremanager.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,6 +11,8 @@ import com.iyes.dacpressuremanager.domain.DacDataState
 import com.iyes.dacpressuremanager.domain.DacSnapshot
 import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureMode
+import com.iyes.dacpressuremanager.domain.ThemePalette
+import com.iyes.dacpressuremanager.domain.ThemeAppearance
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +36,7 @@ class RoomDacRepositoryTest {
     private lateinit var scopeJob: CompletableJob
     private lateinit var scope: CoroutineScope
     private lateinit var repository: RoomDacRepository
+    private lateinit var preferences: SharedPreferences
     private val timestamp = AtomicLong(0)
 
     @Before
@@ -41,9 +45,14 @@ class RoomDacRepositoryTest {
         database = Room.inMemoryDatabaseBuilder(context, DacDatabase::class.java).build()
         scopeJob = SupervisorJob()
         scope = CoroutineScope(scopeJob + Dispatchers.IO)
+        preferences = context.getSharedPreferences(
+            "room-repository-test-${System.nanoTime()}",
+            Context.MODE_PRIVATE,
+        )
         repository = RoomDacRepository(
             database = database,
             applicationScope = scope,
+            preferences = preferences,
             now = { timestamp.incrementAndGet() },
         )
     }
@@ -52,6 +61,8 @@ class RoomDacRepositoryTest {
     fun tearDown() = runBlocking {
         scopeJob.cancelAndJoin()
         database.close()
+        preferences.edit().clear().commit()
+        Unit
     }
 
     @Test
@@ -85,6 +96,22 @@ class RoomDacRepositoryTest {
             CommandResult.KeepOneProfile,
             repository.deleteProfile(requireNotNull(remainingRuby.activeProfile(PressureMode.RUBY)).id),
         )
+    }
+
+    @Test
+    fun storesAndResetsIndependentThemePalettes() = runBlocking {
+        repository.setThemePalette(PressureMode.DIAMOND, ThemePalette.YELLOW)
+        repository.setThemePalette(PressureMode.RUBY, ThemePalette.VIOLET)
+        repository.setThemeAppearance(ThemeAppearance.DARK)
+
+        assertEquals(ThemePalette.YELLOW, repository.themePreferences.value.diamond)
+        assertEquals(ThemePalette.VIOLET, repository.themePreferences.value.ruby)
+        assertEquals(ThemeAppearance.DARK, repository.themePreferences.value.appearance)
+
+        repository.resetThemePalettes()
+        assertEquals(ThemePalette.DEFAULT, repository.themePreferences.value.diamond)
+        assertEquals(ThemePalette.DEFAULT, repository.themePreferences.value.ruby)
+        assertEquals(ThemeAppearance.DARK, repository.themePreferences.value.appearance)
     }
 
     @Test

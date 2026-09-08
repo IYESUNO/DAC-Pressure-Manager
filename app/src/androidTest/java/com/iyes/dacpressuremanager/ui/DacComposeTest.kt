@@ -29,6 +29,9 @@ import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
 import com.iyes.dacpressuremanager.domain.Profile
+import com.iyes.dacpressuremanager.domain.ThemePalette
+import com.iyes.dacpressuremanager.domain.ThemeAppearance
+import com.iyes.dacpressuremanager.domain.ThemePreferences
 import com.iyes.dacpressuremanager.ui.theme.DacTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -440,7 +443,7 @@ class DacComposeTest {
             }
         }
 
-        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.onNodeWithContentDescription("Delete record", substring = true).performClick()
         composeRule.onNodeWithText("Clear All").performClick()
         composeRule.onAllNodesWithText("Clear All")[1].performClick()
 
@@ -467,6 +470,133 @@ class DacComposeTest {
 
         composeRule.onNodeWithText("Export").assertIsNotEnabled()
         composeRule.onNodeWithText("No history yet").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsExposeAllThirtyTwoColorsAndEmitSelection() {
+        val selections = mutableListOf<Pair<PressureMode, ThemePalette>>()
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                SettingsDialog(
+                    themePreferences = ThemePreferences(),
+                    updateState = UpdateUiState.Idle,
+                    versionName = "2.1.2",
+                    onSelectPalette = { mode, palette -> selections += mode to palette },
+                    onSelectAppearance = {},
+                    onResetPalettes = {},
+                    onCheckForUpdates = {},
+                    onOpenRelease = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Diamond Color").performClick()
+        composeRule.onNodeWithText("Default").assertIsDisplayed()
+        composeRule.onNodeWithText("Gray").assertIsDisplayed()
+        composeRule.onNodeWithText("Gray").performClick()
+
+        assertEquals(32, ThemePalette.entries.size)
+        assertEquals(PressureMode.DIAMOND to ThemePalette.GRAY, selections.last())
+    }
+
+    @Test
+    fun appearancePageOffersSystemLightAndDarkAndEmitsSelection() {
+        var selection: ThemeAppearance? = null
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                SettingsDialog(
+                    themePreferences = ThemePreferences(),
+                    updateState = UpdateUiState.Idle,
+                    versionName = "2.2.0",
+                    onSelectPalette = { _, _ -> },
+                    onSelectAppearance = { selection = it },
+                    onResetPalettes = {},
+                    onCheckForUpdates = {},
+                    onOpenRelease = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Theme").performClick()
+        composeRule.onNodeWithText("Follow System").assertIsDisplayed()
+        composeRule.onNodeWithText("Light").assertIsDisplayed()
+        composeRule.onNodeWithText("Dark").performClick()
+
+        assertEquals(ThemeAppearance.DARK, selection)
+    }
+
+    @Test
+    fun versionRowOnlyChecksWhenClicked() {
+        var checks = 0
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                SettingsDialog(
+                    themePreferences = ThemePreferences(),
+                    updateState = UpdateUiState.Idle,
+                    versionName = "2.1.2",
+                    onSelectPalette = { _, _ -> },
+                    onSelectAppearance = {},
+                    onResetPalettes = {},
+                    onCheckForUpdates = { checks += 1 },
+                    onOpenRelease = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        assertEquals(0, checks)
+        composeRule.onNodeWithText("Version 2.1.2").performClick()
+        assertEquals(1, checks)
+    }
+
+    @Test
+    fun versionRowShowsTheUpdateCheckResult() {
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                SettingsDialog(
+                    themePreferences = ThemePreferences(),
+                    updateState = UpdateUiState.Current,
+                    versionName = "2.2.0",
+                    onSelectPalette = { _, _ -> },
+                    onSelectAppearance = {},
+                    onResetPalettes = {},
+                    onCheckForUpdates = {},
+                    onOpenRelease = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("No Updates Available").assertIsDisplayed()
+    }
+
+    @Test
+    fun webVersionRowOpensThePublicDacUrl() {
+        var openedUrl: String? = null
+        composeRule.setContent {
+            DacTheme(PressureMode.DIAMOND) {
+                SettingsDialog(
+                    themePreferences = ThemePreferences(),
+                    updateState = UpdateUiState.Idle,
+                    versionName = "2.1.2",
+                    onSelectPalette = { _, _ -> },
+                    onSelectAppearance = {},
+                    onResetPalettes = {},
+                    onCheckForUpdates = {},
+                    onOpenRelease = { openedUrl = it },
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Web Version").performClick()
+
+        assertEquals(
+            "https://apps.9527857.xyz/DAC-Pressure-Manager",
+            openedUrl,
+        )
     }
 
     private fun mainContent(
