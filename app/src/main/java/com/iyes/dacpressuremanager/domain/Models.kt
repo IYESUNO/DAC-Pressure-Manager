@@ -57,5 +57,4 @@ sealed interface DacDataState {
 sealed interface CommandResult {
     data object Success : CommandResult
     data object KeepOneProfile : CommandResult
-    data class PressureOutOfRange(val result: PressureResult) : CommandResult
 }

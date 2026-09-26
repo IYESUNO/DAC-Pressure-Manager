@@ -14,7 +14,6 @@ import com.iyes.dacpressuremanager.domain.HistoryRecord
 import com.iyes.dacpressuremanager.domain.MeasurementField
 import com.iyes.dacpressuremanager.domain.PressureCalculator
 import com.iyes.dacpressuremanager.domain.PressureMode
-import com.iyes.dacpressuremanager.domain.PressureResult
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.ThemePalette
@@ -253,9 +252,7 @@ class RoomDacRepository(
                 measuredCenti = profile.measuredCenti,
                 temperatureK = profile.temperatureK,
             ).result
-            if (result !is PressureResult.Valid) {
-                return@withTransaction CommandResult.PressureOutOfRange(result)
-            }
+            require(result.rawPressure.isFinite())
             dao.insertHistoryRecord(
                 HistoryRecordEntity(
                     profileId = profileId,

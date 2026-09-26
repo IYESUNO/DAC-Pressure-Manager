@@ -199,7 +199,7 @@ class RoomDacRepositoryTest {
     }
 
     @Test
-    fun historyIsCappedRestorableClearableAndCalibrationProtected() = runBlocking {
+    fun historyIsCappedRestorableClearableAndAllowsReferenceValues() = runBlocking {
         val profileId = requireNotNull(awaitSnapshot().activeProfile()).id
         repeat(51) {
             assertEquals(CommandResult.Success, repository.saveHistory(profileId))
@@ -223,8 +223,13 @@ class RoomDacRepositoryTest {
         )
 
         repository.adjustValue(profileId, MeasurementField.MEASURED, 51_700)
-        assertTrue(repository.saveHistory(profileId) is CommandResult.PressureOutOfRange)
-        assertEquals(50, awaitSnapshot().historyFor(profileId).size)
+        assertEquals(CommandResult.Success, repository.saveHistory(profileId))
+        val high = awaitSnapshot { it.historyFor(profileId).first().pressureCenti > 31_000 }
+        assertEquals(50, high.historyFor(profileId).size)
+        repository.adjustValue(profileId, MeasurementField.MEASURED, -51_800)
+        assertEquals(CommandResult.Success, repository.saveHistory(profileId))
+        val negative = awaitSnapshot { it.historyFor(profileId).first().pressureCenti == -41 }
+        assertEquals(-41, negative.historyFor(profileId).first().pressureCenti)
 
         repository.clearHistory(profileId)
         assertTrue(awaitSnapshot { it.historyFor(profileId).isEmpty() }.historyFor(profileId).isEmpty())

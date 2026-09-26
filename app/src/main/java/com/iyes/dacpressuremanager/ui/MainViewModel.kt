@@ -264,9 +264,7 @@ class MainViewModel(
                 }
             }
             is MainAction.SaveHistory -> enqueueCommand {
-                if (repository.saveHistory(action.profileId) is CommandResult.PressureOutOfRange) {
-                    message.value = UiMessage.CANNOT_SAVE_OUT_OF_RANGE
-                }
+                repository.saveHistory(action.profileId)
             }
             is MainAction.SelectThemePalette -> enqueueCommand {
                 repository.setThemePalette(action.mode, action.palette)

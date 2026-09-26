@@ -11,7 +11,6 @@ import com.iyes.dacpressuremanager.domain.ThemePreferences
 
 enum class UiMessage {
     KEEP_ONE_PROFILE,
-    CANNOT_SAVE_OUT_OF_RANGE,
     DATABASE_ERROR,
     EXPORT_SUCCESS,
     EXPORT_FAILED,

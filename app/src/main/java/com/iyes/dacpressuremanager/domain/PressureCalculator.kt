@@ -5,10 +5,12 @@ import kotlin.math.pow
 
 sealed interface PressureResult {
     val rawPressure: Double
+    val pressureCenti: Int
+        get() = PressureCalculator.javaScriptRound(rawPressure * 100.0).toInt()
 
     data class Valid(
         override val rawPressure: Double,
-        val pressureCenti: Int,
+        override val pressureCenti: Int,
     ) : PressureResult
 
     data class OutOfRangeNegative(

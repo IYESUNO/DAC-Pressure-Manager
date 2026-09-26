@@ -49,10 +49,9 @@
     <string name="shift_with_temperature">Shift: %1$s %2$s (%3$d K)</string>
     <string name="history_values">R: %1$s | M: %2$s %3$s</string>
     <string name="history_values_temperature">R: %1$s | M: %2$s %3$s | T: %4$d K</string>
-    <string name="out_of_range">OUT OF RANGE</string>
-    <string name="calibration_high">Exceeds AK2006 maximum: 310 GPa</string>
-    <string name="calibration_negative">AK2006 does not support negative pressure</string>
-    <string name="cannot_save_range">Cannot save: Diamond AK2006 is calibrated only from 0 to 310 GPa.</string>
+    <string name="calibration_high">Above AK2006 range (0–310 GPa).</string>
+    <string name="calibration_negative">Below AK2006 range (0–310 GPa).</string>
+    <string name="reference_only">Reference only</string>
     <string name="keep_one_profile">Keep at least one profile.</string>
     <string name="profile_name_required">Enter a profile name.</string>
     <string name="delete_profile_title">Delete profile?</string>
