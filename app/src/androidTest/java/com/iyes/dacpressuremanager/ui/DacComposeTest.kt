@@ -473,7 +473,7 @@ class DacComposeTest {
     }
 
     @Test
-    fun settingsExposeAllThirtyTwoColorsAndEmitSelection() {
+    fun settingsExposeTwentySixAccentChoicesAndEmitSelection() {
         val selections = mutableListOf<Pair<PressureMode, ThemePalette>>()
         composeRule.setContent {
             DacTheme(PressureMode.DIAMOND) {
@@ -493,11 +493,12 @@ class DacComposeTest {
 
         composeRule.onNodeWithText("Diamond Color").performClick()
         composeRule.onNodeWithText("Default").assertIsDisplayed()
-        composeRule.onNodeWithText("Gray").assertIsDisplayed()
-        composeRule.onNodeWithText("Gray").performClick()
+        composeRule.onNodeWithText("Gray").assertDoesNotExist()
+        composeRule.onNodeWithText("Tomato").assertIsDisplayed()
+        composeRule.onNodeWithText("Tomato").performClick()
 
-        assertEquals(32, ThemePalette.entries.size)
-        assertEquals(PressureMode.DIAMOND to ThemePalette.GRAY, selections.last())
+        assertEquals(26, ThemePalette.selectable.size)
+        assertEquals(PressureMode.DIAMOND to ThemePalette.TOMATO, selections.last())
     }
 
     @Test

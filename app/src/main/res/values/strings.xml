@@ -8,6 +8,7 @@
     <string name="measured_diamond">Measured (ω)</string>
     <string name="measured_ruby">Measured (λ)</string>
     <string name="new_experiment_name">New Experiment Name</string>
+    <string name="profile_name">Profile name</string>
     <string name="rename_profile">Rename profile</string>
     <string name="rename">Rename</string>
     <string name="delete">Delete</string>

@@ -88,6 +88,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
@@ -101,6 +102,7 @@ import com.iyes.dacpressuremanager.domain.RubyTemperature
 import com.iyes.dacpressuremanager.domain.formatCenti
 import com.iyes.dacpressuremanager.ui.theme.DacResultFontFamily
 import com.iyes.dacpressuremanager.ui.theme.LocalDacAccentColors
+import com.iyes.dacpressuremanager.ui.theme.dacFilledButtonColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -717,6 +719,7 @@ private fun TemperatureDialog(
     }
     val temperatureK = draft.text.toIntOrNull()
     val isValid = temperatureK?.let(RubyTemperature::isValid) == true
+    var inputFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val kelvinUnit = stringResourceCompat(R.string.temperature_kelvin_unit)
     val unitColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -808,11 +811,14 @@ private fun TemperatureDialog(
                             .weight(1f, fill = false)
                             .widthIn(min = 124.dp, max = 160.dp)
                             .height(72.dp)
+                            .onFocusChanged { inputFocused = it.isFocused }
                             .border(
                                 BorderStroke(
-                                    1.dp,
+                                    if (inputFocused) 2.dp else 1.dp,
                                     if (draft.text.isNotEmpty() && !isValid) {
                                         MaterialTheme.colorScheme.error
+                                    } else if (inputFocused) {
+                                        MaterialTheme.colorScheme.primary
                                     } else {
                                         MaterialTheme.colorScheme.outline
                                     },
@@ -904,10 +910,11 @@ private fun TemperatureDialog(
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = onDismiss) {
-                        Text(stringResourceCompat(R.string.cancel))
+                        Text(stringResourceCompat(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.width(6.dp))
                     Button(
+                        colors = dacFilledButtonColors(),
                         enabled = isValid,
                         onClick = { onApply(requireNotNull(temperatureK)) },
                     ) {
@@ -1129,10 +1136,14 @@ private fun ResultCard(
     val shiftText = "$shiftPrefix${formatCenti(shiftCenti)}"
     val showTemperature = mode == PressureMode.RUBY &&
         temperatureK != RubyTemperature.ROOM_K
-    val resultHeight = layout.resultHeight
+    val fontScale = LocalDensity.current.fontScale
+    val resultHeight = maxOf(
+        layout.resultHeight,
+        ((if (calibrationText != null) 138 else if (veryDense) 92 else 104) * fontScale).dp,
+    )
     val palette = LocalDacAccentColors.current
     val resultColors = listOf(palette.resultFrom, palette.resultTo)
-    val actionAccent = palette.text
+    val actionAccent = palette.buttonText
     val resultContentColor = palette.onAction
 
     Row(
@@ -1191,33 +1202,22 @@ private fun ResultCard(
                         mode.unit,
                     )
                 },
-                color = if (shiftCenti < 0) {
-                    if (resultContentColor == Color.White) {
-                        Color(0xFFFFCCCB)
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
-                } else {
-                    resultContentColor
-                },
-                fontSize = when {
-                    veryDense -> 9.sp
-                    dense -> 11.sp
-                    else -> 13.sp
-                },
-                lineHeight = if (veryDense) 10.sp else 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                color = if (shiftCenti < 0) MaterialTheme.colorScheme.onErrorContainer else resultContentColor,
+                modifier = if (shiftCenti < 0) Modifier
+                    .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp) else Modifier,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                maxLines = 2,
             )
             if (calibrationText != null) {
                 Text(
                     text = calibrationText,
-                    color = resultContentColor.copy(alpha = 0.86f),
-                    fontSize = if (veryDense) 8.sp else 10.sp,
-                    lineHeight = if (veryDense) 9.sp else 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = resultContentColor,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
                 )
             }
         }
@@ -1352,7 +1352,7 @@ private fun ResultActionButton(
             color = containerColor,
             contentColor = contentColor,
             border = if (primary) {
-                BorderStroke(1.dp, palette.buttonBorder.copy(alpha = 0.72f))
+                BorderStroke(1.dp, palette.focusBorder)
             } else {
                 BorderStroke(1.dp, palette.onAction.copy(alpha = 0.65f))
             },
@@ -1412,6 +1412,7 @@ private fun ProfileNameDialog(
                 onValueChange = { name = it },
                 singleLine = true,
                 isError = !isValid,
+                label = { Text(stringResourceCompat(R.string.profile_name)) },
                 supportingText = {
                     if (!isValid) {
                         Text(stringResourceCompat(R.string.profile_name_required))
@@ -1421,7 +1422,8 @@ private fun ProfileNameDialog(
             )
         },
         confirmButton = {
-            TextButton(
+            Button(
+                colors = dacFilledButtonColors(),
                 onClick = { onConfirm(name.trim()) },
                 enabled = isValid,
             ) {
@@ -1436,7 +1438,7 @@ private fun ProfileNameDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResourceCompat(R.string.cancel))
+                Text(stringResourceCompat(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
@@ -1472,7 +1474,7 @@ private fun ErrorContent(
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(12.dp))
-        Button(onClick = onRetry) {
+        Button(onClick = onRetry, colors = dacFilledButtonColors()) {
             Text(stringResourceCompat(R.string.retry))
         }
     }

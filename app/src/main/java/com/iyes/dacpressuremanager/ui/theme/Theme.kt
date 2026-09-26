@@ -3,6 +3,7 @@ package com.iyes.dacpressuremanager.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -28,7 +29,22 @@ internal data class DacAccentColors(
     val buttonBackground: Color,
     val buttonBackgroundPressed: Color,
     val buttonBorder: Color,
-)
+    val textStrong: Color = bestBlackOrWhite(listOf(buttonBackground, buttonBackgroundPressed)),
+) {
+    // Text and non-text indicators have different contrast requirements.
+    val buttonText: Color get() = readableColor(
+        text, listOf(buttonBackground, buttonBackgroundPressed), alternative = textStrong,
+    )
+    val statusMarker: Color get() = readableColor(text, listOf(statusBackground), 3f, textStrong)
+    val focusBorder: Color get() = readableColor(
+        buttonBorder, listOf(buttonBackground, buttonBackgroundPressed), 3f, textStrong,
+    )
+}
+
+@Composable
+internal fun dacFilledButtonColors() = LocalDacAccentColors.current.let { accent ->
+    ButtonDefaults.buttonColors(containerColor = accent.action, contentColor = accent.onAction)
+}
 
 internal val LocalDacAccentColors = staticCompositionLocalOf {
     DacAccentColors(
@@ -58,8 +74,8 @@ private val DiamondLightColors = lightColorScheme(
     surfaceContainer = Color(0xFFF0F2F5),
     surfaceVariant = Color(0xFFF0F2F5),
     onSurface = Color(0xFF333333),
-    onSurfaceVariant = Color(0xFF7F8C8D),
-    outline = Color(0xFFDDDDDD),
+    onSurfaceVariant = Color(0xFF60646C),
+    outline = Color(0xFF80838D),
     outlineVariant = Color(0xFFEEEEEE),
     error = Color(0xFFC0392B),
 )
@@ -94,8 +110,8 @@ private val RubyLightColors = lightColorScheme(
     surfaceContainer = Color(0xFFF0F2F5),
     surfaceVariant = Color(0xFFF0F2F5),
     onSurface = Color(0xFF333333),
-    onSurfaceVariant = Color(0xFF7F8C8D),
-    outline = Color(0xFFDDDDDD),
+    onSurfaceVariant = Color(0xFF60646C),
+    outline = Color(0xFF80838D),
     outlineVariant = Color(0xFFEEEEEE),
     error = Color(0xFFC0392B),
 )
@@ -151,23 +167,39 @@ internal fun dacColorScheme(
     darkTheme: Boolean,
     palette: ThemePalette = ThemePalette.DEFAULT,
 ): ColorScheme {
-    val base = when {
+    val baseColors = when {
     mode == PressureMode.DIAMOND && !darkTheme -> DiamondLightColors
     mode == PressureMode.DIAMOND -> DiamondDarkColors
     !darkTheme -> RubyLightColors
     else -> RubyDarkColors
     }
+    // Material dialogs/menus also consume the container ladder. Override every
+    // level so they cannot fall back to the stock purple Material palette.
+    val base = baseColors.copy(
+        surfaceDim = if (darkTheme) baseColors.surface else Color(0xFFE0E1E6),
+        surfaceBright = if (darkTheme) Color(0xFF30353A) else Color.White,
+        surfaceContainerLowest = if (darkTheme) baseColors.background else Color.White,
+        surfaceContainerLow = if (darkTheme) baseColors.surface else Color(0xFFF9F9FB),
+        surfaceContainerHigh = baseColors.surfaceContainer,
+        surfaceContainerHighest = if (darkTheme) baseColors.surfaceVariant else Color(0xFFE8E8EC),
+        surfaceTint = Color.Transparent,
+    )
     if (palette == ThemePalette.DEFAULT) return base
 
     val scaleColors = palette.scale().colors(darkTheme)
     val accent = dacAccentColors(mode, palette, darkTheme)
+    val primary = readableColor(
+        accent.text, listOf(base.surface, base.surfaceContainerHigh), alternative = scaleColors[11],
+    )
     return base.copy(
-        primary = accent.action,
-        onPrimary = accent.onAction,
+        // Material uses primary for text, cursors and radio indicators too.
+        // Bright solid fills belong to DacAccentColors, not this text role.
+        primary = primary,
+        onPrimary = bestBlackOrWhite(primary),
         primaryContainer = scaleColors[2],
         onPrimaryContainer = scaleColors[11],
-        secondary = accent.actionStrong,
-        onSecondary = accent.onAction,
+        secondary = accent.text,
+        onSecondary = bestBlackOrWhite(accent.text),
         secondaryContainer = scaleColors[4],
         onSecondaryContainer = scaleColors[11],
         tertiary = accent.text,
@@ -197,6 +229,7 @@ internal fun dacAccentColors(
                 buttonBackground = Color(0xFFE6F4FE),
                 buttonBackgroundPressed = Color(0xFFC2E5FF),
                 buttonBorder = Color(0xFF5EB1EF),
+                textStrong = ThemePalette.BLUE.scale().light[11],
             )
             mode == PressureMode.DIAMOND -> DacAccentColors(
                 action = Color(0xFF124F73),
@@ -211,6 +244,7 @@ internal fun dacAccentColors(
                 buttonBackground = Color(0xFF0D2847),
                 buttonBackgroundPressed = Color(0xFF004074),
                 buttonBorder = Color(0xFF2870BD),
+                textStrong = ThemePalette.BLUE.scale().dark[11],
             )
             !darkTheme -> DacAccentColors(
                 action = Color(0xFFC63E32),
@@ -225,6 +259,7 @@ internal fun dacAccentColors(
                 buttonBackground = Color(0xFFFFEBEC),
                 buttonBackgroundPressed = Color(0xFFFFCDCE),
                 buttonBorder = Color(0xFFEB8E90),
+                textStrong = ThemePalette.RED.scale().light[11],
             )
             else -> DacAccentColors(
                 action = Color(0xFF752420),
@@ -239,6 +274,7 @@ internal fun dacAccentColors(
                 buttonBackground = Color(0xFF3B1219),
                 buttonBackgroundPressed = Color(0xFF611623),
                 buttonBorder = Color(0xFFB54548),
+                textStrong = ThemePalette.RED.scale().dark[11],
             )
         }
     }
@@ -276,15 +312,29 @@ internal fun dacAccentColors(
         resultFrom = resultFrom,
         resultTo = resultTo,
         onAction = onAction,
-        text = colors[10],
+        text = readableColor(
+            colors[10],
+            if (darkTheme) listOf(Color(0xFF0E1216), Color(0xFF261D1D))
+            else listOf(Color.White, Color(0xFFF0F2F5)),
+            alternative = colors[11],
+        ),
         selection = action,
         onSelection = onAction,
         statusBackground = colors[2],
         buttonBackground = colors[2],
         buttonBackgroundPressed = colors[4],
         buttonBorder = colors[7],
+        textStrong = colors[11],
     )
 }
+
+// Prefer the palette's high-contrast text step before falling back to a neutral.
+internal fun readableColor(
+    preferred: Color,
+    backgrounds: List<Color>,
+    minimum: Float = 4.5f,
+    alternative: Color = bestBlackOrWhite(backgrounds),
+): Color = if (backgrounds.all { contrastRatio(preferred, it) >= minimum }) preferred else alternative
 
 private fun bestBlackOrWhite(background: Color): Color =
     bestBlackOrWhite(listOf(background))

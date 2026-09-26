@@ -81,7 +81,8 @@ class PaletteScalesTest {
                 assertEquals("${palette.name} dark=$darkTheme action", expectedAction, accent.action)
                 assertEquals("${palette.name} dark=$darkTheme strong", expectedStrong, accent.actionStrong)
                 assertNotEquals("${palette.name} dark=$darkTheme gradient", accent.action, accent.actionStrong)
-                assertEquals("${palette.name} dark=$darkTheme text", colors[10], accent.text)
+                assertTrue("${palette.name} text stays in its Radix text roles",
+                    accent.text == colors[10] || accent.text == colors[11])
                 assertEquals("${palette.name} dark=$darkTheme selection", expectedAction, accent.selection)
                 assertEquals("${palette.name} dark=$darkTheme status", colors[2], accent.statusBackground)
                 assertEquals("${palette.name} dark=$darkTheme button", colors[2], accent.buttonBackground)
@@ -99,6 +100,40 @@ class PaletteScalesTest {
 
             assertEquals(default.outline, yellow.outline)
             assertEquals(default.outlineVariant, yellow.outlineVariant)
+        }
+    }
+
+    @Test
+    fun removedNeutralThemesFallBackWithoutRemovingColorScales() {
+        assertEquals(26, ThemePalette.selectable.size)
+        listOf("GRAY", "MAUVE", "SLATE", "SAGE", "OLIVE", "SAND", "unknown").forEach {
+            assertEquals(ThemePalette.DEFAULT, ThemePalette.fromStorage(it))
+        }
+        ThemePalette.selectable.forEach { assertEquals(it, ThemePalette.fromStorage(it.name)) }
+    }
+
+    @Test
+    fun textAndInteractionRolesRemainReadableAcrossPalettesAndAppearances() {
+        PressureMode.entries.forEach { mode ->
+            ThemePalette.selectable.forEach { palette ->
+                listOf(false, true).forEach { dark ->
+                    val scheme = dacColorScheme(mode, dark, palette)
+                    val accent = dacAccentColors(mode, palette, dark)
+                    val label = "$mode $palette dark=$dark"
+                    listOf(scheme.surface, scheme.surfaceContainer, scheme.surfaceContainerHigh).forEach { background ->
+                        assertTrue("$label primary on surface", contrast(scheme.primary, background) >= 4.5f)
+                        assertTrue("$label themed text on surface", contrast(accent.text, background) >= 4.5f)
+                        assertTrue("$label secondary text on surface", contrast(scheme.onSurfaceVariant, background) >= 4.5f)
+                    }
+                    listOf(accent.buttonBackground, accent.buttonBackgroundPressed).forEach { background ->
+                        assertTrue("$label button text", contrast(accent.buttonText, background) >= 4.5f)
+                        assertTrue("$label button border", contrast(accent.focusBorder, background) >= 3f)
+                    }
+                    assertTrue("$label status marker", contrast(accent.statusMarker, accent.statusBackground) >= 3f)
+                    assertTrue("$label selected profile", contrast(accent.selection, accent.onSelection) >= 4.5f)
+                    assertTrue("$label warning", contrast(scheme.errorContainer, scheme.onErrorContainer) >= 4.5f)
+                }
+            }
         }
     }
 

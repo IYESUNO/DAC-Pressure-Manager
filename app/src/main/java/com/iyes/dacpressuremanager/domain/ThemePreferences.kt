@@ -63,7 +63,13 @@ enum class ThemePalette {
     ;
 
     companion object {
+        // Keep stored names and neutral scales compatible, but do not offer six
+        // nearly identical neutral palettes as accent themes.
+        val selectable: List<ThemePalette> = entries.filterNot {
+            it in setOf(GRAY, MAUVE, SLATE, SAGE, OLIVE, SAND)
+        }
+
         fun fromStorage(value: String?): ThemePalette =
-            entries.firstOrNull { it.name == value } ?: DEFAULT
+            selectable.firstOrNull { it.name == value } ?: DEFAULT
     }
 }
