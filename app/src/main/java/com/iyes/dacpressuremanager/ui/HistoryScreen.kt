@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.iyes.dacpressuremanager.R
+import com.iyes.dacpressuremanager.ui.theme.LocalDacAccentColors
+import com.iyes.dacpressuremanager.ui.theme.dacFilledButtonColors
 import com.iyes.dacpressuremanager.domain.HistoryRecord
 import com.iyes.dacpressuremanager.domain.Profile
 import com.iyes.dacpressuremanager.domain.PressureMode
@@ -82,6 +84,9 @@ fun HistoryDialog(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val content = state as? HistoryUiState.Content
+    val canClear = content?.records?.isNotEmpty() == true
+    val clearColor = if (canClear) MaterialTheme.colorScheme.error
+        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     val message = content?.message
     val messageText = message?.let { uiMessageText(it) }
     var showClearConfirmation by rememberSaveable { mutableStateOf(false) }
@@ -169,28 +174,29 @@ fun HistoryDialog(
                     ) {
                         OutlinedButton(
                             onClick = { showClearConfirmation = true },
-                            enabled = content?.records?.isNotEmpty() == true,
+                            enabled = canClear,
                             modifier = Modifier
                                 .weight(1f)
                                 .heightIn(min = 48.dp),
                             border = BorderStroke(
                                 1.dp,
-                                MaterialTheme.colorScheme.error,
+                                clearColor,
                             ),
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.error,
+                                tint = clearColor,
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 text = stringResource(R.string.clear_all),
-                                color = MaterialTheme.colorScheme.error,
+                                color = clearColor,
                             )
                         }
                         Button(
+                            colors = dacFilledButtonColors(),
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
@@ -305,7 +311,8 @@ private fun HistoryHeader(
                 enabled = content?.records?.isNotEmpty() == true,
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.primary,
+                    if (content?.records?.isNotEmpty() == true) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                 ),
             ) {
                 Text(stringResource(R.string.export))
@@ -434,7 +441,7 @@ private fun HistoryRecordRow(
                         R.string.pressure_gpa,
                         formatCenti(record.pressureCenti),
                     ),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = LocalDacAccentColors.current.text,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -497,8 +504,8 @@ private fun CompactHistoryAction(
                 .fillMaxWidth()
                 .height(44.dp),
             shape = RoundedCornerShape(7.dp),
-            color = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+            color = LocalDacAccentColors.current.action,
+            contentColor = LocalDacAccentColors.current.onAction,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
@@ -567,7 +574,7 @@ private fun HistoryError(
     ) {
         Text(stringResource(R.string.database_error))
         Spacer(Modifier.height(10.dp))
-        Button(onClick = onRetry) {
+        Button(onClick = onRetry, colors = dacFilledButtonColors()) {
             Text(stringResource(R.string.retry))
         }
     }

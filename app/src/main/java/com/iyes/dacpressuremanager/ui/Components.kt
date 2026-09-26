@@ -506,21 +506,21 @@ fun ProfileStrip(
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = if (isLifted) {
-                        profile.mode.dragPreviewColor
+                        accent.buttonBackgroundPressed
                     } else {
                         inactiveContainer
                     },
                     labelColor = if (isLifted) {
-                        Color(0xFF2D2D2D)
+                        accent.buttonText
                     } else {
                         inactiveLabel
                     },
                     selectedContainerColor = when {
-                        isLifted -> profile.mode.dragPreviewColor
+                        isLifted -> accent.buttonBackgroundPressed
                         else -> accent.selection
                     },
                     selectedLabelColor = if (isLifted) {
-                        Color(0xFF2D2D2D)
+                        accent.buttonText
                     } else {
                         accent.onSelection
                     },
@@ -741,9 +741,9 @@ fun MiniHistoryPanel(
         ) {
             Text(
                 text = stringResource(R.string.records),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
                 maxLines = 1,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
@@ -829,24 +829,17 @@ private fun MiniHistoryItem(
                     .width(3.dp)
                     .height(14.dp)
                     .background(
-                        accent.action,
+                        accent.statusMarker,
                         RoundedCornerShape(999.dp),
                     ),
             )
         }
         Text(
             text = formatCenti(record.pressureCenti),
-            color = accent.text,
+            color = if (isLatest) accent.buttonText else accent.text,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
     }
 }
-
-private val PressureMode.dragPreviewColor: Color
-    get() = if (this == PressureMode.DIAMOND) {
-        Color(0xFFF1C40F)
-    } else {
-        Color(0xFFFFBABA)
-    }

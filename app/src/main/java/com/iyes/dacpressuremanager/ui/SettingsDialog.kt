@@ -2,7 +2,7 @@ package com.iyes.dacpressuremanager.ui
 
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,8 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -78,6 +76,9 @@ import com.iyes.dacpressuremanager.domain.ThemePalette
 import com.iyes.dacpressuremanager.domain.ThemeAppearance
 import com.iyes.dacpressuremanager.domain.ThemePreferences
 import com.iyes.dacpressuremanager.ui.theme.dacAccentColors
+import com.iyes.dacpressuremanager.ui.theme.dacFilledButtonColors
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 
 private enum class SettingsPage {
     MAIN,
@@ -363,7 +364,7 @@ private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        color = MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
     )
@@ -489,7 +490,7 @@ private fun VersionRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onLater) { Text(stringResource(R.string.later)) }
-                    Button(onClick = { onOpenRelease(updateState.releaseUrl) }) {
+                    Button(onClick = { onOpenRelease(updateState.releaseUrl) }, colors = dacFilledButtonColors()) {
                         Text(stringResource(R.string.open_release))
                     }
                 }
@@ -511,8 +512,10 @@ private fun PalettePage(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(ThemePalette.entries, key = ThemePalette::name) { palette ->
+        items(ThemePalette.selectable, key = ThemePalette::name) { palette ->
             val isSelected = palette == selected
+            val light = dacAccentColors(mode, palette, darkTheme = false)
+            val dark = dacAccentColors(mode, palette, darkTheme = true)
             val paletteName = stringResource(palette.labelRes)
             val semanticText = stringResource(
                 if (isSelected) R.string.selected_color else R.string.select_color,
@@ -520,56 +523,62 @@ private fun PalettePage(
             )
             Surface(
                 modifier = Modifier
-                    .height(88.dp)
+                    .heightIn(min = 80.dp)
                     .semantics {
                         this.selected = isSelected
                         contentDescription = semanticText
                         role = Role.RadioButton
                     }
                     .clickable(role = Role.RadioButton) { onSelect(palette) },
-                shape = RoundedCornerShape(16.dp),
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isSelected) MaterialTheme.colorScheme.surfaceContainer
+                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(
+                    if (isSelected) 2.dp else 1.dp,
+                    if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.outlineVariant,
+                ),
             ) {
-                Column(
-                    modifier = Modifier.padding(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
+                Box(contentAlignment = Alignment.Center) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        PaletteSwatch(mode, palette, 34.dp)
-                        if (isSelected) {
-                            Surface(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                .size(18.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Rounded.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                    )
-                                }
+                        Box(
+                            modifier = Modifier.size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        0f to light.action,
+                                        0.49f to light.action,
+                                        0.51f to dark.action,
+                                        1f to dark.action,
+                                    ),
+                                ),
+                        )
+                        Text(
+                            text = paletteName,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                    if (isSelected) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(18.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            contentColor = MaterialTheme.colorScheme.surface,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(12.dp))
                             }
                         }
                     }
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        paletteName,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }
@@ -578,40 +587,9 @@ private fun PalettePage(
 
 @Composable
 private fun PaletteSwatch(mode: PressureMode, palette: ThemePalette, size: androidx.compose.ui.unit.Dp) {
-    val light = dacAccentColors(mode, palette, darkTheme = false)
-    val dark = dacAccentColors(mode, palette, darkTheme = true)
-    val outline = MaterialTheme.colorScheme.outline.copy(alpha = 0.72f)
-    Canvas(Modifier.size(size)) {
-        drawArc(
-            color = Color.White,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = true,
-        )
-        drawArc(
-            color = Color(0xFF111111),
-            startAngle = 0f,
-            sweepAngle = 180f,
-            useCenter = true,
-        )
-        drawCircle(
-            color = outline,
-            style = Stroke(width = 1.dp.toPx()),
-        )
-
-        val themeCircleRadius = this.size.minDimension * 0.22f
-        val centerX = this.size.width / 2f
-        drawCircle(
-            color = light.action,
-            radius = themeCircleRadius,
-            center = Offset(centerX, this.size.height * 0.27f),
-        )
-        drawCircle(
-            color = dark.action,
-            radius = themeCircleRadius,
-            center = Offset(centerX, this.size.height * 0.73f),
-        )
-    }
+    val accent = dacAccentColors(mode, palette, MaterialTheme.colorScheme.surface.luminance() < 0.5f)
+    Box(Modifier.size(size).clip(RoundedCornerShape(9.dp))
+        .background(Brush.linearGradient(listOf(accent.resultFrom, accent.resultTo))))
 }
 
 private const val DAC_WEB_APP_URL = "https://apps.9527857.xyz/DAC-Pressure-Manager"
