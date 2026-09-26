@@ -81,7 +81,7 @@ class PressureCalculatorTest {
     }
 
     @Test
-    fun diamondRejectsNegativeAndAboveCalibrationPressures() {
+    fun diamondMarksNegativeAndAboveCalibrationPressures() {
         assertTrue(
             PressureCalculator.calculate(
                 PressureMode.DIAMOND,
@@ -96,6 +96,17 @@ class PressureCalculatorTest {
                 measuredCenti = 185_000,
             ).result is PressureResult.OutOfRangeHigh,
         )
+    }
+
+    @Test
+    fun referenceValuesKeepRoundedPressureAndRawRangeStatus() {
+        val negative = PressureCalculator.calculate(PressureMode.DIAMOND, 133_300, 133_200).result
+        assertEquals(-41, negative.pressureCenti)
+        val nearZero = PressureCalculator.calculate(PressureMode.DIAMOND, 133_300, 133_299).result
+        assertEquals(0, nearZero.pressureCenti)
+        assertTrue(nearZero is PressureResult.OutOfRangeNegative)
+        val high = PressureCalculator.calculate(PressureMode.DIAMOND, 133_300, 185_000).result
+        assertEquals(32_529, high.pressureCenti)
     }
 
     @Test

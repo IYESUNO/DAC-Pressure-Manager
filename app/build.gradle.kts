@@ -13,8 +13,8 @@ android {
         applicationId = "com.iyes.dacpressuremanager"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.2.2"
+        versionCode = 14
+        versionName = "2.2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

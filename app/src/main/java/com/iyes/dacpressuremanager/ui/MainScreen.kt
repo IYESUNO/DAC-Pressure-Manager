@@ -47,6 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1120,11 +1121,8 @@ private fun ResultCard(
 ) {
     val dense = layout.compact
     val veryDense = layout.short
-    val pressureText = when (pressure) {
-        is PressureResult.Valid ->
-            "${formatCenti(pressure.pressureCenti)} GPa"
-        else -> stringResourceCompat(R.string.out_of_range)
-    }
+    val pressureText = "${formatCenti(pressure.pressureCenti)} GPa"
+    var showCalibrationInfo by remember(pressure::class) { mutableStateOf(false) }
     val calibrationText = when (pressure) {
         is PressureResult.OutOfRangeHigh ->
             stringResourceCompat(R.string.calibration_high)
@@ -1132,6 +1130,7 @@ private fun ResultCard(
             stringResourceCompat(R.string.calibration_negative)
         else -> null
     }
+    val highlightShift = shiftCenti < 0 || calibrationText != null
     val shiftPrefix = if (shiftCenti > 0) "+" else ""
     val shiftText = "$shiftPrefix${formatCenti(shiftCenti)}"
     val showTemperature = mode == PressureMode.RUBY &&
@@ -1139,7 +1138,7 @@ private fun ResultCard(
     val fontScale = LocalDensity.current.fontScale
     val resultHeight = maxOf(
         layout.resultHeight,
-        ((if (calibrationText != null) 138 else if (veryDense) 92 else 104) * fontScale).dp,
+        ((if (veryDense) 92 else 104) * fontScale).dp,
     )
     val palette = LocalDacAccentColors.current
     val resultColors = listOf(palette.resultFrom, palette.resultTo)
@@ -1172,8 +1171,6 @@ private fun ResultCard(
                     color = resultContentColor,
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontSize = when {
-                            pressure !is PressureResult.Valid ->
-                                if (dense) 22.sp else 28.sp
                             veryDense -> 26.sp
                             dense -> 34.sp
                             else -> 44.sp
@@ -1202,8 +1199,8 @@ private fun ResultCard(
                         mode.unit,
                     )
                 },
-                color = if (shiftCenti < 0) MaterialTheme.colorScheme.onErrorContainer else resultContentColor,
-                modifier = if (shiftCenti < 0) Modifier
+                color = if (highlightShift) MaterialTheme.colorScheme.onErrorContainer else resultContentColor,
+                modifier = if (highlightShift) Modifier
                     .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(4.dp))
                     .padding(horizontal = 4.dp, vertical = 2.dp) else Modifier,
                 fontSize = 12.sp,
@@ -1211,14 +1208,23 @@ private fun ResultCard(
                 maxLines = 2,
             )
             if (calibrationText != null) {
-                Text(
-                    text = calibrationText,
-                    color = resultContentColor,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                )
+                Row(
+                    modifier = Modifier.height(20.dp)
+                        .clickable(role = Role.Button) { showCalibrationInfo = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResourceCompat(R.string.reference_only),
+                        color = resultContentColor,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                    )
+                    Icon(Icons.Outlined.Info, contentDescription = null,
+                        tint = resultContentColor, modifier = Modifier.size(16.dp))
+                }
             }
         }
         if (veryDense) {
@@ -1233,7 +1239,7 @@ private fun ResultCard(
                         if (saved) R.string.saved else R.string.save,
                     ),
                     primary = true,
-                    enabled = pressure is PressureResult.Valid,
+                    enabled = true,
                     accent = actionAccent,
                     onClick = onSave,
                     modifier = Modifier
@@ -1263,7 +1269,7 @@ private fun ResultCard(
                         if (saved) R.string.saved else R.string.save,
                     ),
                     primary = true,
-                    enabled = pressure is PressureResult.Valid,
+                    enabled = true,
                     accent = actionAccent,
                     onClick = onSave,
                     modifier = Modifier
@@ -1282,6 +1288,17 @@ private fun ResultCard(
                 )
             }
         }
+    }
+    if (showCalibrationInfo && calibrationText != null) {
+        AlertDialog(
+            onDismissRequest = { showCalibrationInfo = false },
+            text = { Text(calibrationText) },
+            confirmButton = {
+                TextButton(onClick = { showCalibrationInfo = false }) {
+                    Text(stringResourceCompat(R.string.close))
+                }
+            },
+        )
     }
 }
 
@@ -1487,7 +1504,6 @@ private fun stringResourceCompat(id: Int): String =
 @Composable
 internal fun uiMessageText(message: UiMessage): String = when (message) {
     UiMessage.KEEP_ONE_PROFILE -> stringResourceCompat(R.string.keep_one_profile)
-    UiMessage.CANNOT_SAVE_OUT_OF_RANGE -> stringResourceCompat(R.string.cannot_save_range)
     UiMessage.DATABASE_ERROR -> stringResourceCompat(R.string.database_error)
     UiMessage.EXPORT_SUCCESS -> stringResourceCompat(R.string.export_success)
     UiMessage.EXPORT_FAILED -> stringResourceCompat(R.string.export_failed)
