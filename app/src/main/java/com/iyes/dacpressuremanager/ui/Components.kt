@@ -382,6 +382,7 @@ fun ProfileStrip(
     val settlingTranslation = remember { Animatable(0f) }
     var dragSourceIndex by remember { mutableIntStateOf(-1) }
     var dragDistance by remember { mutableFloatStateOf(0f) }
+    var draggingWidth by remember { mutableIntStateOf(0) }
     var dragPointerX by remember { mutableFloatStateOf(0f) }
     var initialDraggingItemOffset by remember { mutableFloatStateOf(0f) }
     var autoScrollPerFrame by remember { mutableFloatStateOf(0f) }
@@ -424,298 +425,336 @@ fun ProfileStrip(
         }
     }
 
-    LazyRow(
-        state = listState,
-        modifier = modifier
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        itemsIndexed(
-            items = displayedProfiles,
-            key = { _, profile -> profile.id },
-        ) { index, profile ->
-            val isSelected = profile.id == activeProfileId
-            val isDragging = draggingId == profile.id
-            val isSettling = settlingId == profile.id
-            val isLifted = isDragging || isSettling
-            val chipScale by animateFloatAsState(
-                targetValue = if (isLifted) 1.04f else 1f,
-                animationSpec = spring(
-                    stiffness = Spring.StiffnessMedium,
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                ),
-                label = "profile-chip-scale-${profile.id}",
-            )
-            val selectedDescription = stringResource(
-                if (profile.id == activeProfileId) {
-                    R.string.selected_profile
-                } else {
-                    R.string.select_profile
-                },
-                profile.name,
-            )
-            val moveLeftDescription = if (index > 0) {
-                stringResource(
-                    R.string.move_profile_before,
-                    profile.name,
-                    displayedProfiles[index - 1].name,
-                )
-            } else {
-                null
-            }
-            val moveRightDescription = if (index < displayedProfiles.lastIndex) {
-                stringResource(
-                    R.string.move_profile_after,
-                    profile.name,
-                    displayedProfiles[index + 1].name,
-                )
-            } else {
-                null
-            }
-            val accessibilityActions = buildList {
-                if (moveLeftDescription != null) {
-                    add(
-                        CustomAccessibilityAction(
-                            label = moveLeftDescription,
-                            action = {
-                                onMove(profile.id, index - 1)
-                                true
-                            },
-                        ),
-                    )
-                }
-                if (moveRightDescription != null) {
-                    add(
-                        CustomAccessibilityAction(
-                            label = moveRightDescription,
-                            action = {
-                                onMove(profile.id, index + 1)
-                                true
-                            },
-                        ),
-                    )
-                }
-            }
-            FilterChip(
-                selected = isSelected,
-                onClick = {
-                    if (draggingId == null && settlingId == null) {
-                        onSelect(profile.id)
-                    }
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = if (isLifted) {
-                        accent.buttonBackgroundPressed
-                    } else {
-                        inactiveContainer
+    // Keep gesture ownership outside lazy items: scrolling can dispose their nodes.
+    Box(
+        modifier = modifier.fillMaxWidth()
+            .pointerInput(profiles) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { touchOffset ->
+                        val itemInfo = listState.layoutInfo.visibleItemsInfo
+                            .firstOrNull {
+                                it.key is Long &&
+                                    touchOffset.x >= it.offset &&
+                                    touchOffset.x <= it.offset + it.size
+                            }
+                            ?: return@detectDragGesturesAfterLongPress
+                        val profileId = itemInfo.key as Long
+                        draggingWidth = itemInfo.size
+                        settlingJob?.cancel()
+                        settlingId = null
+                        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                            settlingTranslation.snapTo(0f)
+                        }
+                        previewProfiles = profiles
+                        draggingId = profileId
+                        dragSourceIndex = profiles.indexOfFirst {
+                            it.id == profileId
+                        }
+                        dragDistance = 0f
+                        initialDraggingItemOffset = itemInfo.offset.toFloat()
+                        dragPointerX = touchOffset.x
+                        autoScrollPerFrame = 0f
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    labelColor = if (isLifted) {
-                        accent.buttonText
-                    } else {
-                        inactiveLabel
+                    onDrag = { change, dragAmount ->
+                        if (draggingId == null) return@detectDragGesturesAfterLongPress
+                        change.consume()
+                        dragDistance += dragAmount.x
+                        dragPointerX += dragAmount.x
+                        updatePreviewOrder(dragAmount.x)
+                        val layoutInfo = listState.layoutInfo
+                        autoScrollPerFrame = calculateAutoScroll(
+                            pointerX = dragPointerX,
+                            viewportStart = layoutInfo.viewportStartOffset.toFloat(),
+                            viewportEnd = layoutInfo.viewportEndOffset.toFloat(),
+                            edgeThreshold = edgeThresholdPx,
+                            maximumPerFrame = maxAutoScrollPerFramePx,
+                        )
                     },
-                    selectedContainerColor = when {
-                        isLifted -> accent.buttonBackgroundPressed
-                        else -> accent.selection
-                    },
-                    selectedLabelColor = if (isLifted) {
-                        accent.buttonText
-                    } else {
-                        accent.onSelection
-                    },
-                ),
-                shape = chipShape,
-                label = {
-                    Text(
-                        text = profile.name,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                modifier = Modifier
-                    .animateItem(
-                        fadeInSpec = null,
-                        fadeOutSpec = null,
-                        placementSpec = if (isLifted) {
-                            null
+                    onDragEnd = {
+                        val id = draggingId
+                        val targetIndex = previewProfiles.indexOfFirst {
+                            it.id == id
+                        }
+                        val currentOffset = listState.layoutInfo.visibleItemsInfo
+                            .firstOrNull { it.key == id }
+                            ?.offset
+                            ?.toFloat()
+                        val releaseTranslation = if (currentOffset == null) {
+                            0f
                         } else {
-                            spring(
-                                stiffness = Spring.StiffnessMediumLow,
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                            )
-                        },
-                    )
-                    .widthIn(min = 70.dp, max = 148.dp)
-                    .height(44.dp)
-                    .border(
-                        width = 1.dp,
-                        color = if (isSelected || isLifted) Color.Transparent else inactiveBorder,
-                        shape = chipShape,
-                    )
-                    .zIndex(if (isLifted) 2f else 0f)
-                    .shadow(
-                        elevation = if (isLifted) 8.dp else 0.dp,
-                        shape = chipShape,
-                        clip = false,
-                    )
-                    .graphicsLayer {
-                        translationX = when {
-                            isDragging -> {
-                                val currentOffset = listState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.key == profile.id }
-                                    ?.offset
-                                    ?.toFloat()
-                                if (currentOffset == null) {
-                                    0f
-                                } else {
-                                    initialDraggingItemOffset + dragDistance - currentOffset
+                            initialDraggingItemOffset + dragDistance - currentOffset
+                        }
+                        autoScrollPerFrame = 0f
+                        if (id != null) {
+                            settlingJob?.cancel()
+                            settlingJob = scope.launch(
+                                start = CoroutineStart.UNDISPATCHED,
+                            ) {
+                                settlingTranslation.snapTo(releaseTranslation)
+                                settlingId = id
+                                draggingId = null
+                                dragDistance = 0f
+                                settlingTranslation.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        stiffness = Spring.StiffnessMediumLow,
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                    ),
+                                )
+                                if (settlingId == id) {
+                                    settlingId = null
                                 }
                             }
-                            isSettling -> settlingTranslation.value
-                            else -> 0f
+                        } else {
+                            draggingId = null
+                            dragDistance = 0f
                         }
-                        scaleX = chipScale
-                        scaleY = chipScale
-                    }
-                    .semantics {
-                        contentDescription = selectedDescription
-                        customActions = accessibilityActions
-                    }
-                    .pointerInput(profile.id) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { touchOffset ->
-                                val itemInfo = listState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.key == profile.id }
-                                    ?: return@detectDragGesturesAfterLongPress
-                                settlingJob?.cancel()
-                                settlingId = null
-                                scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                                    settlingTranslation.snapTo(0f)
-                                }
-                                previewProfiles = profiles
-                                draggingId = profile.id
-                                dragSourceIndex = profiles.indexOfFirst {
-                                    it.id == profile.id
-                                }
-                                dragDistance = 0f
-                                initialDraggingItemOffset = itemInfo.offset.toFloat()
-                                dragPointerX = itemInfo.offset + touchOffset.x
-                                autoScrollPerFrame = 0f
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragDistance += dragAmount.x
-                                dragPointerX += dragAmount.x
-                                updatePreviewOrder(dragAmount.x)
-                                val layoutInfo = listState.layoutInfo
-                                autoScrollPerFrame = calculateAutoScroll(
-                                    pointerX = dragPointerX,
-                                    viewportStart = layoutInfo.viewportStartOffset.toFloat(),
-                                    viewportEnd = layoutInfo.viewportEndOffset.toFloat(),
-                                    edgeThreshold = edgeThresholdPx,
-                                    maximumPerFrame = maxAutoScrollPerFramePx,
-                                )
-                            },
-                            onDragEnd = {
-                                val id = draggingId
-                                val targetIndex = previewProfiles.indexOfFirst {
-                                    it.id == id
-                                }
-                                val currentOffset = listState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.key == id }
-                                    ?.offset
-                                    ?.toFloat()
-                                val releaseTranslation = if (currentOffset == null) {
-                                    0f
-                                } else {
-                                    initialDraggingItemOffset + dragDistance - currentOffset
-                                }
-                                autoScrollPerFrame = 0f
-                                if (id != null) {
-                                    settlingJob?.cancel()
-                                    settlingJob = scope.launch(
-                                        start = CoroutineStart.UNDISPATCHED,
-                                    ) {
-                                        settlingTranslation.snapTo(releaseTranslation)
-                                        settlingId = id
-                                        draggingId = null
-                                        dragDistance = 0f
-                                        settlingTranslation.animateTo(
-                                            targetValue = 0f,
-                                            animationSpec = spring(
-                                                stiffness = Spring.StiffnessMediumLow,
-                                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                            ),
-                                        )
-                                        if (settlingId == id) {
-                                            settlingId = null
-                                        }
-                                    }
-                                } else {
-                                    draggingId = null
-                                    dragDistance = 0f
-                                }
-                                if (
-                                    id != null &&
-                                    dragSourceIndex >= 0 &&
-                                    targetIndex >= 0 &&
-                                    dragSourceIndex != targetIndex
-                                ) {
-                                    onMove(id, targetIndex)
-                                } else {
-                                    previewProfiles = profiles
-                                }
-                                dragSourceIndex = -1
-                            },
-                            onDragCancel = {
-                                settlingJob?.cancel()
-                                autoScrollPerFrame = 0f
-                                draggingId = null
-                                settlingId = null
-                                dragSourceIndex = -1
-                                dragDistance = 0f
-                                previewProfiles = profiles
-                            },
+                        if (
+                            id != null &&
+                            dragSourceIndex >= 0 &&
+                            targetIndex >= 0 &&
+                            dragSourceIndex != targetIndex
+                        ) {
+                            onMove(id, targetIndex)
+                        } else {
+                            previewProfiles = profiles
+                        }
+                        dragSourceIndex = -1
+                    },
+                    onDragCancel = {
+                        settlingJob?.cancel()
+                        autoScrollPerFrame = 0f
+                        draggingId = null
+                        settlingId = null
+                        dragSourceIndex = -1
+                        dragDistance = 0f
+                        previewProfiles = profiles
+                    },
+                )
+            },
+    ) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            itemsIndexed(
+                items = displayedProfiles,
+                key = { _, profile -> profile.id },
+            ) { index, profile ->
+                val isSelected = profile.id == activeProfileId
+                val isDragging = draggingId == profile.id
+                val isSettling = settlingId == profile.id
+                val isLifted = isDragging || isSettling
+                val chipScale by animateFloatAsState(
+                    targetValue = if (isLifted) 1.04f else 1f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                    ),
+                    label = "profile-chip-scale-${profile.id}",
+                )
+                val selectedDescription = stringResource(
+                    if (profile.id == activeProfileId) {
+                        R.string.selected_profile
+                    } else {
+                        R.string.select_profile
+                    },
+                    profile.name,
+                )
+                val moveLeftDescription = if (index > 0) {
+                    stringResource(
+                        R.string.move_profile_before,
+                        profile.name,
+                        displayedProfiles[index - 1].name,
+                    )
+                } else {
+                    null
+                }
+                val moveRightDescription = if (index < displayedProfiles.lastIndex) {
+                    stringResource(
+                        R.string.move_profile_after,
+                        profile.name,
+                        displayedProfiles[index + 1].name,
+                    )
+                } else {
+                    null
+                }
+                val accessibilityActions = buildList {
+                    if (moveLeftDescription != null) {
+                        add(
+                            CustomAccessibilityAction(
+                                label = moveLeftDescription,
+                                action = {
+                                    onMove(profile.id, index - 1)
+                                    true
+                                },
+                            ),
                         )
-                    },
-            )
-        }
-        item(key = "add-profile") {
-            val addProfileDescription = stringResource(R.string.add_profile_description)
-            val accent = LocalDacAccentColors.current
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics {
-                        role = Role.Button
-                        contentDescription = addProfileDescription
-                        onClick {
-                            onAdd()
-                            true
-                        }
                     }
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = { onAdd() })
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Surface(
-                    modifier = Modifier.size(38.dp),
-                    shape = CircleShape,
-                    color = accent.action,
-                    contentColor = accent.onAction,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        OperatorGlyphIcon(
-                            glyph = OperatorGlyph.Plus,
-                            color = accent.onAction,
-                            modifier = Modifier.size(18.dp),
+                    if (moveRightDescription != null) {
+                        add(
+                            CustomAccessibilityAction(
+                                label = moveRightDescription,
+                                action = {
+                                    onMove(profile.id, index + 1)
+                                    true
+                                },
+                            ),
                         )
                     }
                 }
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        if (draggingId == null && settlingId == null) {
+                            onSelect(profile.id)
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = if (isLifted) {
+                            accent.buttonBackgroundPressed
+                        } else {
+                            inactiveContainer
+                        },
+                        labelColor = if (isLifted) {
+                            accent.buttonText
+                        } else {
+                            inactiveLabel
+                        },
+                        selectedContainerColor = when {
+                            isLifted -> accent.buttonBackgroundPressed
+                            else -> accent.selection
+                        },
+                        selectedLabelColor = if (isLifted) {
+                            accent.buttonText
+                        } else {
+                            accent.onSelection
+                        },
+                    ),
+                    shape = chipShape,
+                    label = {
+                        Text(
+                            text = profile.name,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    modifier = Modifier
+                        .animateItem(
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = if (isLifted) {
+                                null
+                            } else {
+                                spring(
+                                    stiffness = Spring.StiffnessMediumLow,
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                )
+                            },
+                        )
+                        .widthIn(min = 70.dp, max = 148.dp)
+                        .height(44.dp)
+                        .border(
+                            width = 1.dp,
+                            color = if (isSelected || isLifted) Color.Transparent else inactiveBorder,
+                            shape = chipShape,
+                        )
+                        .zIndex(if (isLifted) 2f else 0f)
+                        .shadow(
+                            elevation = if (isLifted) 8.dp else 0.dp,
+                            shape = chipShape,
+                            clip = false,
+                        )
+                        .graphicsLayer {
+                            alpha = if (isDragging) 0f else 1f
+                            translationX = when {
+                                isDragging -> {
+                                    val currentOffset = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == profile.id }
+                                        ?.offset
+                                        ?.toFloat()
+                                    if (currentOffset == null) {
+                                        0f
+                                    } else {
+                                        initialDraggingItemOffset + dragDistance - currentOffset
+                                    }
+                                }
+                                isSettling -> settlingTranslation.value
+                                else -> 0f
+                            }
+                            scaleX = chipScale
+                            scaleY = chipScale
+                        }
+                        .semantics {
+                            contentDescription = selectedDescription
+                            customActions = accessibilityActions
+                        }
+
+                )
             }
+            item(key = "add-profile") {
+                val addProfileDescription = stringResource(R.string.add_profile_description)
+                val accent = LocalDacAccentColors.current
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = addProfileDescription
+                            onClick {
+                                onAdd()
+                                true
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { onAdd() })
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = CircleShape,
+                        color = accent.action,
+                        contentColor = accent.onAction,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            OperatorGlyphIcon(
+                                glyph = OperatorGlyph.Plus,
+                                color = accent.onAction,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        val draggedProfile = displayedProfiles.firstOrNull { it.id == draggingId }
+        if (draggedProfile != null) {
+            FilterChip(
+                selected = true,
+                onClick = {},
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(with(density) { draggingWidth.toDp() })
+                    .height(44.dp)
+                    .graphicsLayer {
+                        translationX = initialDraggingItemOffset + dragDistance
+                        scaleX = 1.04f
+                        scaleY = 1.04f
+                    }
+                    .shadow(8.dp, chipShape, clip = false),
+                shape = chipShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = accent.buttonBackgroundPressed,
+                    selectedLabelColor = accent.buttonText,
+                ),
+                label = {
+                    Text(draggedProfile.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+            )
         }
     }
 }

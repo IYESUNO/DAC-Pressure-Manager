@@ -23,7 +23,6 @@ internal fun reorderProfilesForDrag(
     val targetBounds = visibleItems
         .asSequence()
         .filter { it.key != draggedId && it.key is Long }
-        .filter { pointerX in it.start..it.end }
         .minByOrNull { bounds ->
             abs(pointerX - (bounds.start + bounds.end) / 2f)
         }
