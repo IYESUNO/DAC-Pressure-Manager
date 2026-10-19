@@ -65,6 +65,25 @@ class ProfileDragTest {
     }
 
     @Test
+    fun draggingBeyondRightEdgeStillReorders() {
+        val result = reorderProfilesForDrag(profiles, 1L, bounds, 400f, 100f)
+        assertEquals(listOf(2L, 3L, 4L, 1L), result.map(Profile::id))
+    }
+
+    @Test
+    fun draggingBeyondLeftEdgeStillReorders() {
+        val result = reorderProfilesForDrag(profiles, 4L, bounds, -80f, -100f)
+        assertEquals(listOf(4L, 1L, 2L, 3L), result.map(Profile::id))
+    }
+
+    @Test
+    fun edgeScrollingCanReachNewlyVisibleItemsWithoutPointerMovement() {
+        val first = reorderProfilesForDrag(profiles, 1L, bounds.take(3), 400f, 9f)
+        val next = reorderProfilesForDrag(first, 1L, bounds.drop(1), 400f, 9f)
+        assertEquals(listOf(2L, 3L, 4L, 1L), next.map(Profile::id))
+    }
+
+    @Test
     fun edgeScrollIsProportionalAndStopsAwayFromEdges() {
         assertEquals(
             -12f,
